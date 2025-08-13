@@ -1,6 +1,6 @@
 ﻿using HarmonyLib;
 
-namespace DiscordBot.Trackers;
+namespace DiscordBot.Notices;
 
 public static class OnDeath
 {
@@ -47,8 +47,7 @@ public static class OnDeath
 
                 killedBy = Format(hit.m_hitType.ToString());
             }
-            Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Notifications, $"{EmojiHelper.Emoji("balloon")} {__instance.GetPlayerName()} has died!", $"Killed by {killedBy}", "Valheim Bot", avatar);
-            
+            Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Notifications, $"{EmojiHelper.Emoji("balloon")} {__instance.GetPlayerName()} $label_has_died!", $"$label_killed_by {killedBy}", ZNet.instance.GetWorldName(), avatar);
         }
     }
 }

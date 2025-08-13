@@ -1,0 +1,9 @@
+{
+  "label_has_died" : "has died!",
+  "label_killed_by" : "killed by",
+  "msg_server_saving" : "Server is saving!",
+  "msg_server_stop" : "Server is shutting down!",
+  "label_players_connected" : "players connected",
+  "title_new_connection" : "New Connection!",
+  "msg_server_start" : "Server is booting up!"
+}

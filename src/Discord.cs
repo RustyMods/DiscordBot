@@ -32,6 +32,7 @@ public class Discord : MonoBehaviour
     public event Action<string>? OnError;
     
     private string m_lastMessageID = "";
+    private string m_lastCommandID = "";
     private bool m_isPollingChatter;
     private bool m_isPollingCommands;
 
@@ -44,8 +45,7 @@ public class Discord : MonoBehaviour
         if (!ZNet.m_isServer) return;
         OnMessageReceived += HandleChatMessage;
         OnCommandReceived += HandleCommands;
-        if (m_serverStartNotice.Value is Toggle.On)
-            SendEmbedMessage(Webhook.Notifications, "Server is booting up!", ZNet.instance.GetServerIP(), ZNet.instance.GetWorldName(), Links.ServerIcon);
+
     }
 
     private void Start()
@@ -58,6 +58,9 @@ public class Discord : MonoBehaviour
         }
         if (!string.IsNullOrEmpty(m_chatChannelID.Value) && m_chatEnabled.Value is Toggle.On) StartPollingChatter();
         if (!string.IsNullOrEmpty(m_commandChannelID.Value)) StartPollingCommands();
+        
+        if (m_serverStartNotice.Value is Toggle.On) SendEmbedMessage(Webhook.Notifications, "$msg_server_start", ZNet.instance.GetServerIP(), ZNet.instance.GetWorldName(), Links.ServerIcon);
+        SendMessage(Webhook.Commands, ZNet.instance.GetWorldName(), $"{EmojiHelper.Emoji("question")} type `help` to find list of available commands");
     }
 
     private void OnDestroy()
@@ -118,7 +121,7 @@ public class Discord : MonoBehaviour
     {
         var webhookData = new DiscordWebhookData
         {
-            content = message,
+            content = Localization.instance.Localize(message),
             username = userName,
             avatar_url = Links.DefaultAvatar
         };
@@ -130,8 +133,8 @@ public class Discord : MonoBehaviour
     {
         var embed = new Embed
         {
-            title = title,
-            description = content,
+            title = Localization.instance.Localize(title),
+            description = Localization.instance.Localize(content),
             timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
         };
         if (!string.IsNullOrEmpty(thumbnail))
@@ -278,13 +281,15 @@ public class Discord : MonoBehaviour
                 if (messages is not { Length: > 0 }) yield break;
                 var message = messages[0];
                 if (message.author.bot) yield break;
-                
-                
+
                 var timeStamp = DateTime.Parse(message.timestamp).ToUniversalTime(); // local time, so convert
                 if (m_timeLoaded > timeStamp)
                 {
                     yield break;
                 }
+
+                if (message.id == m_lastCommandID) yield break;
+                m_lastCommandID = message.id;
 
                 OnCommandReceived?.Invoke(message);
             }

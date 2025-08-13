@@ -1,7 +1,7 @@
 ﻿using HarmonyLib;
 using Splatform;
 
-namespace DiscordBot.Trackers;
+namespace DiscordBot.Notices;
 
 public static class OnNewChat
 {

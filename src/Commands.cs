@@ -571,21 +571,24 @@ public static class DiscordCommands
     
     public class DiscordCommand
     {
-        [Description("Action ran when Discord component receives a new command")]
+        [Description("Action runs when Discord component receives a new command")]
         private readonly Action<string[]> m_action;
-        [Description("Action ran when player receives package from RPC_BotToClient")]
+        [Description("Action runs when player receives package from RPC_BotToClient")]
         private readonly Action<ZPackage>? m_reaction;
         [Description("If only discord admins are allowed to run command")]
         private readonly bool m_adminOnly = false;
+        [Description("If secret, not added to description dictionary which prints when using help command")] 
+        private readonly bool m_isSecret;
 
         [Description("Register a new discord command")]
-        public DiscordCommand(string command, string description, Action<string[]> action, Action<ZPackage>? reaction = null, bool adminOnly = false, string emoji = "")
+        public DiscordCommand(string command, string description, Action<string[]> action, Action<ZPackage>? reaction = null, bool adminOnly = false, bool isSecret = false, string emoji = "")
         {
             m_action = action;
             m_reaction = reaction;
             m_adminOnly = adminOnly;
+            m_isSecret = isSecret;
             m_commands[command] = this;
-            m_descriptions[(string.IsNullOrEmpty(emoji) ? "" : $"{EmojiHelper.Emoji(emoji)} ") + $"`{command}`"] = description + (adminOnly ? $"\n\n{Formatting.Format("[Only Admin]", Formatting.TextFormat.BoldItalic)}" : "");
+            if (!m_isSecret) m_descriptions[(string.IsNullOrEmpty(emoji) ? "" : $"{EmojiHelper.Emoji(emoji)} ") + $"`{command}`"] = description + (adminOnly ? $"\n\n{Formatting.Format("[Only Admin]", Formatting.TextFormat.BoldItalic)}" : "");
         }
 
         public bool IsAllowed(string discordUserName) => !m_adminOnly || new DiscordBotPlugin.StringListConfig(DiscordBotPlugin.m_discordAdmins.Value).list.Contains(discordUserName);

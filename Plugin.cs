@@ -8,6 +8,7 @@ using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
 using JetBrains.Annotations;
+using LocalizationManager;
 using ServerSync;
 using UnityEngine;
 
@@ -67,6 +68,7 @@ namespace DiscordBot
 
         public void Awake()
         {
+            Localizer.Load();
             m_instance = this;
             _serverConfigLocked = config("1 - General", "Lock Configuration", Toggle.On, "If on, the configuration is locked and can be changed by server admins only.");
             _ = ConfigSync.AddLockingConfigEntry(_serverConfigLocked);

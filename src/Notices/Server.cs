@@ -1,7 +1,7 @@
 ﻿using HarmonyLib;
 using static DiscordBot.DiscordBotPlugin;
 
-namespace DiscordBot.Trackers;
+namespace DiscordBot.Notices;
 
 public static class Server
 {
@@ -13,7 +13,7 @@ public static class Server
             if (m_serverSaveNotice.Value is Toggle.Off) return;
             if (!__instance.IsServer()) return;
             var WorldName = __instance.GetWorldName();
-            Discord.instance.SendMessage(Webhook.Notifications, WorldName, $"{EmojiHelper.Emoji("save")} Server is saving!");
+            Discord.instance.SendMessage(Webhook.Notifications, WorldName, $"{EmojiHelper.Emoji("save")} $msg_server_saving");
         }
     }
     
@@ -25,9 +25,9 @@ public static class Server
             if (m_newPlayerNotice.Value is Toggle.Off) return;
             if (!__instance.IsServer()) return;
             var playerCount = __instance.GetNrOfPlayers();
-            var description = $"{playerCount} players connected!";
+            var description = $"{playerCount} $label_players_connected!";
             var WorldName = ZNet.instance.GetWorldName();
-            Discord.instance.SendEmbedMessage(Webhook.Notifications, $"{EmojiHelper.Emoji("donut")} New Connection!", description, WorldName, Links.ServerIcon);
+            Discord.instance.SendEmbedMessage(Webhook.Notifications, $"{EmojiHelper.Emoji("donut")} $title_new_connection", description, WorldName, Links.ServerIcon);
         }
     }
 
@@ -39,7 +39,7 @@ public static class Server
             if (m_serverStopNotice.Value is Toggle.Off) return;
             if (!__instance.IsServer()) return;
             var WorldName = ZNet.instance.GetWorldName();
-            Discord.instance.SendMessage(Webhook.Notifications, WorldName, $"{EmojiHelper.Emoji("stop")} Server is shutting down!");
+            Discord.instance.SendMessage(Webhook.Notifications, WorldName, $"{EmojiHelper.Emoji("stop")} $msg_server_stop");
         }
     }
 }
