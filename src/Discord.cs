@@ -55,7 +55,6 @@ public class Discord : MonoBehaviour
         if (!string.IsNullOrEmpty(m_chatChannelID.Value) && m_chatEnabled.Value is Toggle.On) StartPollingChatter();
         if (!string.IsNullOrEmpty(m_commandChannelID.Value)) StartPollingCommands();
         
-        if (m_serverStartNotice.Value is Toggle.On) SendEmbedMessage(Webhook.Notifications, "$msg_server_start", ZNet.instance.GetServerIP(), ZNet.instance.GetWorldName(), Links.ServerIcon);
         SendMessage(Webhook.Commands, ZNet.instance.GetWorldName(), $"{EmojiHelper.Emoji("question")} type `!help` to find list of available commands");
     }
 
@@ -464,7 +463,6 @@ public class Discord : MonoBehaviour
             return username;
         }
     }
-
     #endregion
 }
 

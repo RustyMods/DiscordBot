@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Text;
+using BepInEx.Bootstrap;
 using HarmonyLib;
 using UnityEngine;
 
@@ -367,16 +368,18 @@ public static class DiscordCommands
         var message = new DiscordCommand("!message", "Broadcast message to all players which shows up center of screen", args =>
         {
             var message = string.Join(" ", args.Skip(1));
-            var pkg = new ZPackage();
-            pkg.Write("!message");
-            pkg.Write(message);
-            foreach(var peer in ZNet.instance.GetPeers()) peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
-            if (Player.m_localPlayer) Player.m_localPlayer.Message(MessageHud.MessageType.Center, message);
-        }, pkg =>
-        {
-            string message = pkg.ReadString();
-            Player.m_localPlayer.Message(MessageHud.MessageType.Center, message);
+            MessageHud.instance.MessageAll(MessageHud.MessageType.Center, message);
         }, adminOnly: true, emoji:"smile");
+
+        var forceSleep =
+            new DiscordCommand("!sleep", "Forced everyone to sleep", _ =>
+            {
+                if (EnvMan.instance.IsTimeSkipping() || !EnvMan.IsAfternoon() && !EnvMan.IsNight() ||
+                    ZNet.instance.GetTimeSeconds() - Game.instance.m_lastSleepTime < 10.0) return;
+                EnvMan.instance.SkipToMorning();
+                Game.instance.m_sleeping = true;
+                ZRoutedRpc.instance.InvokeRoutedRPC(ZRoutedRpc.Everybody, "SleepStart");
+            }, adminOnly: true, emoji: "moon");
 
         var setKey = new DiscordCommand("!setkey", "Set global key", args =>
         {
@@ -642,6 +645,51 @@ public static class DiscordCommands
             }
             Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, $"{profile.m_playerName} Stats", stringBuilder.ToString(), ZNet.instance.GetWorldName());
         },emoji: "wine");
+
+        var mods = new DiscordCommand("!mods", "List of plugin installed, `<string?:PlayerName>`", args =>
+            {
+                if (args.Length > 1)
+                {
+                    var playerName = args[1].Trim();
+                    if (Player.m_localPlayer && Player.m_localPlayer.GetPlayerName() == playerName)
+                    {
+                        StringBuilder stringBuilder = new StringBuilder();
+                        foreach (var plugin in Chainloader.PluginInfos)
+                        {
+                            stringBuilder.Append($"{plugin.Value.Metadata.Name}-{plugin.Value.Metadata.Version}\n");
+                        }
+                        Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, $"{playerName} installed plugins", stringBuilder.ToString(), ZNet.instance.GetWorldName());
+                    }
+                    else if (ZNet.instance.GetPeerByPlayerName(playerName) is { } peer)
+                    {
+                        var pkg = new ZPackage();
+                        pkg.Write("!mods");
+                        peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
+                    }
+                    else
+                    {
+                        Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), "Failed to find player: " + playerName);
+                    }
+                }
+                else
+                {
+                    StringBuilder stringBuilder = new StringBuilder();
+                    foreach (var plugin in Chainloader.PluginInfos)
+                    {
+                        stringBuilder.Append($"{plugin.Value.Metadata.Name}-{plugin.Value.Metadata.Version}\n");
+                    }
+                    Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, "Server installed plugins", stringBuilder.ToString(), ZNet.instance.GetWorldName());
+                }
+            },
+            pkg =>
+            {
+                StringBuilder stringBuilder = new StringBuilder();
+                foreach (var plugin in Chainloader.PluginInfos)
+                {
+                    stringBuilder.Append($"{plugin.Value.Metadata.Name}-{plugin.Value.Metadata.Version}\n");
+                }
+                Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, $"{Game.instance.GetPlayerProfile().m_playerName} installed plugins", stringBuilder.ToString(), ZNet.instance.GetWorldName());
+            }, emoji: "guitar");
     }
     
     public static bool Spawn(string prefabName, int level, Vector3 pos)
