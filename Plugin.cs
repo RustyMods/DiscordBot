@@ -84,12 +84,12 @@ namespace DiscordBot
             m_newPlayerNotice = config("2 - Notifications", "New Connection", Toggle.On,
                 "If on, bot will send message when new player connects");
 
-            m_chatWebhookURL = config("3 - Chat", "Webhook URL", "https://discord.com/api/webhooks/1404119063046652035/OqBFopk29Cku3_4TiLCJVwaagkyLVPcE1m1OoCJw2i9pppKkOe1BMoHH7vHh_RfWy1d3", "Set discord webhook to display chat messages");
-            m_chatChannelID = config("3 - Chat", "Channel ID", "983975176590983209", "Set channel ID to monitor for messages");
+            m_chatWebhookURL = config("3 - Chat", "Webhook URL", "", "Set discord webhook to display chat messages");
+            m_chatChannelID = config("3 - Chat", "Channel ID", "", "Set channel ID to monitor for messages");
             m_chatEnabled = config("3 - Chat", "Enabled", Toggle.On, "If on, bot will send message when player shouts and monitor discord for messages");
             
-            m_commandWebhookURL = config("4 - Commands", "Webhook URL", "https://discord.com/api/webhooks/1404941903144685779/gc8DFwfIO5eUnxzoJ1Dqsi-iX68GLUMWzk_7Au5YD6rZhD7kFsx2BxLdj7tKfB1qWuYN", "Set discord webhook to display feedback messages from commands");
-            m_commandChannelID = config("4 - Commands", "Channel ID", "1106369492512165898", "Set channel ID to monitor for input commands");
+            m_commandWebhookURL = config("4 - Commands", "Webhook URL", "", "Set discord webhook to display feedback messages from commands");
+            m_commandChannelID = config("4 - Commands", "Channel ID", "", "Set channel ID to monitor for input commands");
             m_discordAdmins = config("4 - Commands", "Discord Admin", "", new ConfigDescription("List of discord admins, who can run commands", null, new ConfigurationManagerAttributes()
             {
                 CustomDrawer = StringListConfig.Draw

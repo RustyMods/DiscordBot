@@ -136,7 +136,6 @@
     </ItemGroup>
     <ItemGroup>
         <Content Include=".gitignore" />
-        <Content Include="assets\DropAssetBundleInThisFolder.txt" />
         <Content Include="environment.props" />
         <Content Include="ILRepack.targets" />
         <Content Include="Libs\ServerSync.dll">
