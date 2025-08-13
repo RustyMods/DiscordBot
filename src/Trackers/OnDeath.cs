@@ -44,7 +44,7 @@ public static class OnDeath
 
                 killedBy = FormatCamelOrPascal(hit.m_hitType.ToString()).ToLower();
             }
-            Discord.instance.SendEmbedMessage(DiscordBotPlugin.m_notificationWebhookURL.Value, __instance.GetPlayerName() + " has died!", $"Killed by {killedBy}", "Valheim Bot", avatar);
+            Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Notifications, __instance.GetPlayerName() + " has died!", $"Killed by {killedBy}", "Valheim Bot", avatar);
             
         }
     }

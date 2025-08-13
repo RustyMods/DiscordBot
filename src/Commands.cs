@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using HarmonyLib;
@@ -9,36 +10,120 @@ namespace DiscordBot;
 
 public static class DiscordCommands
 {
-    
+    [HarmonyPatch(typeof(ZNet), nameof(ZNet.OnNewConnection))]
+    private static class ZNet_OnNewConnection_Patch
+    {
+        private static void Postfix(ZNetPeer peer)
+        {
+            // Register RPC to clients to receive message from server
+            peer.m_rpc.Register<ZPackage>(nameof(RPC_BotToClient), RPC_BotToClient);
+        }
+    }
     public static readonly Dictionary<string, DiscordCommand> m_commands = new();
-    
+    private static readonly Dictionary<string, string> m_descriptions = new();
+
     public static void Setup()
     {
-        var listPlayers = new DiscordCommand("listplayers", _ =>
+        var help = new DiscordCommand("help", "List of commands", _ =>
+        {
+            Discord.instance.SendTableEmbed(DiscordBotPlugin.Webhook.Commands, "List of available commands", m_descriptions, ZNet.instance.GetWorldName());
+        });
+        var listAdmins = new DiscordCommand("listadmins", "List of discord admins registered to plugin", _ =>
         {
             StringBuilder stringBuilder = new StringBuilder();
-            stringBuilder.Append("List of active players: \n");
+            foreach (var username in new DiscordBotPlugin.StringListConfig(DiscordBotPlugin.m_discordAdmins.Value).list)
+            {
+                stringBuilder.Append($"`{username}`\n");
+            }
+            Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, "List of discord usernames who can use commands:", stringBuilder.ToString(), ZNet.instance.GetWorldName());
+        });
+        var addDiscordAdmin = new DiscordCommand("addadmin",
+            "Adds discord username to admin list, to enable using commands, `<string:Username>`",
+            args =>
+            {
+                if (args.Length < 2) return;
+                var userName = args[1].Trim();
+                var list = new DiscordBotPlugin.StringListConfig(DiscordBotPlugin.m_discordAdmins.Value);
+                list.list.Add(userName);
+                DiscordBotPlugin.m_discordAdmins.Value = list.ToString();
+                listAdmins.Run(new []{"listadmins"});
+            }, adminOnly: true);
+        var removeDiscordAdmin = new DiscordCommand("removeadmin",
+            "Remove discord username from admin list, to disable using commands, `<string:Username>`",
+            args =>
+            {
+                var userName = args[1].Trim();
+                var list = new DiscordBotPlugin.StringListConfig(DiscordBotPlugin.m_discordAdmins.Value);
+                list.list.Remove(userName);
+                DiscordBotPlugin.m_discordAdmins.Value = list.ToString();
+                listAdmins.Run(new []{"listadmins"});
+            }, adminOnly: true);
+        var listEnv = new DiscordCommand("listenv", "List of available environments", _ =>
+        {
+            StringBuilder stringBuilder = new StringBuilder();
+            foreach (var env in EnvMan.instance.m_environments) stringBuilder.Append($"`{env.m_name}`\n");
+            Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, "List of available environments:", stringBuilder.ToString(), ZNet.instance.GetWorldName());
+        });
+        var forceEnv = new DiscordCommand("env", "Force environment on all players", args =>
+            {
+                if (args.Length < 2) return;
+                var environment = args[1].Trim();
+                if (EnvMan.instance.GetEnv(environment) is { } env)
+                {
+                    var pkg = new ZPackage();
+                    pkg.Write("env");
+                    pkg.Write(environment);
+                    foreach(var peer in ZNet.instance.GetPeers()) peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
+                    if (Player.m_localPlayer)
+                    {
+                        EnvMan.instance.m_debugEnv = environment;
+                    }
+                }
+                else
+                {
+                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(),
+                        "Failed to find environment: " + environment);
+                }
+            }, pkg =>
+            {
+                string environment = pkg.ReadString();
+                EnvMan.instance.m_debugEnv = environment;
+            },
+            adminOnly: true);
+        var resetEnv = new DiscordCommand("resetenv", "Reset environment on all players", _ =>
+            {
+                var pkg = new ZPackage();
+                pkg.Write("resetenv");
+                foreach(var peer in ZNet.instance.GetPeers()) peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
+                if (Player.m_localPlayer) EnvMan.instance.m_debugEnv = "";
+            }, _ => EnvMan.instance.m_debugEnv = "",
+            adminOnly: true);
+        var listPlayers = new DiscordCommand("listplayers", "List of active players", _ =>
+        {
+            Dictionary<string, string> content = new Dictionary<string, string>();
             foreach (var player in ZNet.instance.m_players)
             {
-                stringBuilder.AppendFormat("{0} ({1}) \n", player.m_name, $"{player.m_position.x}, {player.m_position.y}, {player.m_position.z}");
+                content[player.m_name] = $"Position: `{player.m_position.x} {player.m_position.y} {player.m_position.z}`";
             }
-            Discord.instance.SendEmbedMessage(DiscordBotPlugin.m_commandWebhookURL.Value, "Active Players", stringBuilder.ToString(), ZNet.instance.GetWorldName());
+            Discord.instance.SendTableEmbed(DiscordBotPlugin.Webhook.Commands, "List of active players", content, ZNet.instance.GetWorldName());
         }, adminOnly: true);
 
-        var kick = new DiscordCommand("kick", args =>
+        var kick = new DiscordCommand("kick", "Kicks player from server, `<string:PlayerName>`", args =>
         {
             if (args.Length < 2) return;
-            var playerName = args[1];
+            var playerName = args[1].Trim();
             if (ZNet.instance.GetPeerByPlayerName(playerName) is not { } peer)
             {
-                Discord.instance.SendMessage(DiscordBotPlugin.m_commandWebhookURL.Value, ZNet.instance.GetWorldName(), "Failed to find " + playerName);
-                return;
+                Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), "Failed to find " + playerName);
             }
-            ZNet.instance.Disconnect(peer);
-            Discord.instance.SendMessage(DiscordBotPlugin.m_commandWebhookURL.Value, ZNet.instance.GetWorldName(), $"Kicked {playerName} from server !");
+            else
+            {
+                ZNet.instance.Disconnect(peer);
+                Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), $"Kicked {playerName} from server !");
+            }
         }, adminOnly:true);
 
-        var give = new DiscordCommand("give", args =>
+        var give = new DiscordCommand("give", "Adds item directly into player inventory, `<string:PlayerName>` `<string:ItemName>` `<int:Stack>` `<int?:Quality>` `<int?:Variant>`", args =>
         {
             if (args.Length < 4) return;
             var playerName = args[1].Trim();
@@ -46,17 +131,13 @@ public static class DiscordCommands
             var amount = int.TryParse(args[3].Trim(), out int stack) ? stack : 1;
             int quality = args.Length > 4 ? int.TryParse(args[4].Trim(), out int level) ? level : 1 : 1;
             int variant = args.Length > 5 ? int.TryParse(args[5].Trim(), out int type) ? type : 0 : 0;
+            
             if (Player.m_localPlayer && Player.m_localPlayer.GetPlayerName() == playerName)
             {
                 GiveItem(itemName, amount,quality, variant);
             }
-            else
+            else if (ZNet.instance.GetPeerByPlayerName(playerName) is { } peer)
             {
-                if (ZNet.instance.GetPeerByPlayerName(playerName) is not { } peer)
-                {
-                    Discord.instance.SendMessage(DiscordBotPlugin.m_commandWebhookURL.Value, ZNet.instance.GetWorldName(), "Failed to find " + playerName);
-                    return;
-                }
                 var pkg = new ZPackage();
                 pkg.Write("give");
                 pkg.Write(itemName);
@@ -66,112 +147,163 @@ public static class DiscordCommands
                 
                 peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
             }
+            else
+            {
+                Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), "Failed to find " + playerName);
+            }
+        }, pkg =>
+        {
+            var itemName = pkg.ReadString();
+            var amount = pkg.ReadInt();
+            var quality = pkg.ReadInt();
+            var variant = pkg.ReadInt();
+                
+            GiveItem(itemName, amount,quality,variant);
         }, adminOnly:true);
 
-        var teleportTo = new DiscordCommand("teleport", args =>
+        var teleportTo = new DiscordCommand("teleport", "Teleport player to location, `<string:PlayerName>` `<string:bed>` or `<string:OtherPlayerName>` or `<float:x>` `<float:y>` `<float:z>`", args =>
         {
             if (args.Length < 5) return;
             var playerName = args[1].Trim();
             var otherPlayerName = args[2].Trim();
-            Vector3 pos;
 
             if (otherPlayerName == "bed")
             {
-                if (Player.m_localPlayer)
+                if (Player.m_localPlayer && Player.m_localPlayer.GetPlayerName() == playerName)
                 {
-                    pos = Game.instance.GetPlayerProfile().GetCustomSpawnPoint();
-                    Player.m_localPlayer.TeleportTo(pos, Quaternion.identity, true);
+                    Player.m_localPlayer.TeleportTo(Game.instance.GetPlayerProfile().GetCustomSpawnPoint(), Quaternion.identity, true);
+                }
+                else if (ZNet.instance.GetPeerByPlayerName(playerName) is { } peer)
+                {
+                    ZPackage pkg = new ZPackage();
+                    pkg.Write("teleport");
+                    pkg.Write("bed");
+                    peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
                 }
                 else
                 {
-                    
-                    ZPackage pkg = new ZPackage();
-                    pkg.Write("bed");
-                    if (ZNet.instance.GetPeerByPlayerName(playerName) is not { } peer) return;
-                    peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
+                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), "Failed to find " + playerName);
+                }
+            }
+            else
+            {
+                Vector3 pos;
+                if (Player.m_localPlayer && Player.m_localPlayer.GetPlayerName() == otherPlayerName)
+                {
+                    pos = Player.m_localPlayer.transform.position;
+                }
+                else if (ZNet.instance.GetPeerByPlayerName(otherPlayerName) is { } otherPeer)
+                {
+                    pos = otherPeer.m_refPos;
+                }
+                else if (float.TryParse(args[2].Trim(), out float x) && float.TryParse(args[3].Trim(), out float y) && float.TryParse(args[4].Trim(), out float z))
+                {
+                    pos = new Vector3(x, y, z);
+                }
+                else
+                {
+                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), "Incorrect teleport command format");
+                    return;
                 }
                 
-                return;
-            }
-            
-            
-            
-            if (Player.m_localPlayer && Player.m_localPlayer.GetPlayerName() == otherPlayerName)
-            {
-                pos = Player.m_localPlayer.transform.position;
-            }
-            else if (ZNet.instance.GetPeerByPlayerName(otherPlayerName) is { } otherPeer)
-            {
-                pos = otherPeer.m_refPos;
-            }
-            else
-            {
-                if (!float.TryParse(args[2].Trim(), out float x)) return;
-                if (!float.TryParse(args[3].Trim(), out float y)) return;
-                if (!float.TryParse(args[4].Trim(), out float z)) return;
-                pos = new Vector3(x, y, z);
-            }
-            
-            if (Player.m_localPlayer && Player.m_localPlayer.GetPlayerName() == playerName)
-            {
-                Player.m_localPlayer.TeleportTo(pos, Quaternion.identity, true);
-            }
-            else
-            {
-                if (ZNet.instance.GetPeerByPlayerName(playerName) is not { } peer)
+                if (Player.m_localPlayer && Player.m_localPlayer.GetPlayerName() == playerName)
                 {
-                    Discord.instance.SendMessage(DiscordBotPlugin.m_commandWebhookURL.Value, ZNet.instance.GetWorldName(), "Failed to find " + playerName);
-                    return;
+                    Player.m_localPlayer.TeleportTo(pos, Quaternion.identity, true);
                 }
-
-                var pkg = new ZPackage();
-                pkg.Write("teleport");
-                pkg.Write(pos);
-                peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
+                else if (ZNet.instance.GetPeerByPlayerName(playerName) is { } peer)
+                {
+                    var pkg = new ZPackage();
+                    pkg.Write("teleport");
+                    pkg.Write("vector");
+                    pkg.Write(pos);
+                    peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
+                }
+                else
+                {
+                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), "Failed to find " + playerName);
+                }
             }
+        }, pkg =>
+        {
+            string type = pkg.ReadString();
+            switch (type)
+            {
+                case "bed":
+                    var bedPoint = Game.instance.GetPlayerProfile().GetCustomSpawnPoint();
+                    Player.m_localPlayer.TeleportTo(bedPoint, Quaternion.identity, true);
+                    break;
+                case "vector":
+                    Vector3 pos = pkg.ReadVector3();
+                    Player.m_localPlayer.TeleportTo(pos, Quaternion.identity, true);
+                    break;
+            }
+        },adminOnly:true);
 
-        }, adminOnly:true);
-
-        var spawn = new DiscordCommand("spawn", args =>
+        var spawn = new DiscordCommand("spawn", "spawns prefab at location, `<string:PrefabName>` `<int:Level>` `<string:PlayerName>` or `<float:x>` `<float:y>` `<float:z>`", args =>
         {
             if (args.Length < 4) return;
-            var creatureName = args[1];
-            var level = int.TryParse(args[2], out int lvl) ? lvl : 1;
-            var playerName = args[3];
+            var prefabName = args[1].Trim();
+            var level = int.TryParse(args[2].Trim(), out int lvl) ? lvl : 1;
 
-            if (Player.m_localPlayer && Player.m_localPlayer.GetPlayerName() == playerName)
+            if (args.Length == 6)
             {
-                Spawn(creatureName, level, Player.m_localPlayer.transform.position);
+                if (!float.TryParse(args[3].Trim(), out float x) || !float.TryParse(args[4].Trim(), out float y) || !float.TryParse(args[5].Trim(), out float z))
+                {
+                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), "Incorrect spawn command format");
+                }
+                else if (!ZoneSystem.instance.IsZoneLoaded(new Vector3(x, y, z)))
+                {
+                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), "Failed to spawn, location zone is not loaded!");
+                }
+                else if (!Spawn(prefabName, level, new Vector3(x, y, z)))
+                {
+                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), "Failed to spawn: " + prefabName);
+                }
             }
             else
             {
-                if (ZNet.instance.GetPeerByPlayerName(playerName) is not { } peer)
+                var playerName = args[3].Trim();
+
+                if (Player.m_localPlayer && Player.m_localPlayer.GetPlayerName() == playerName)
                 {
-                    Discord.instance.SendMessage(DiscordBotPlugin.m_commandWebhookURL.Value, ZNet.instance.GetWorldName(), "Failed to find " + playerName);
-                    return;
+                    if (!Spawn(prefabName, level, Player.m_localPlayer.transform.position))
+                    {
+                        Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), "Failed to spawn: " + prefabName);
+                    }
                 }
-
-                var pkg = new ZPackage();
-                pkg.Write("spawn");
-                pkg.Write(creatureName);
-                pkg.Write(level);
-                peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
-
+                else if (ZNet.instance.GetPeerByPlayerName(playerName) is {} peer)
+                {
+                    var pkg = new ZPackage();
+                    pkg.Write("spawn");
+                    pkg.Write(prefabName);
+                    pkg.Write(level);
+                    peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
+                }
+                else
+                {
+                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), "Failed to find " + playerName);
+                }
             }
-        }, adminOnly: true);
+            
+        }, pkg =>
+        {
+            string creatureName = pkg.ReadString();
+            int level = pkg.ReadInt();
+            Spawn(creatureName, level, Player.m_localPlayer.transform.position);
+        },adminOnly: true);
 
-        var save = new DiscordCommand("save", _ =>
+        var save = new DiscordCommand("save", "Save player profiles and world", _ =>
         {
             ZNet.instance.Save(true, true, true);
         }, adminOnly: true);
 
-        var shutDown = new DiscordCommand("shutdown", _ =>
+        var shutDown = new DiscordCommand("shutdown", "Save player profiles, save world and shutdown, bot cannot start server", _ =>
         {
             ZNet.instance.SaveOtherPlayerProfiles();
             ZNet.instance.Shutdown();
         }, adminOnly: true);
 
-        var scream = new DiscordCommand("message", args =>
+        var message = new DiscordCommand("message", "Broadcast message to all players which shows up center of screen", args =>
         {
             var message = string.Join(" ", args.Skip(1));
             var pkg = new ZPackage();
@@ -179,31 +311,37 @@ public static class DiscordCommands
             pkg.Write(message);
             foreach(var peer in ZNet.instance.GetPeers()) peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
             if (Player.m_localPlayer) Player.m_localPlayer.Message(MessageHud.MessageType.Center, message);
+        }, pkg =>
+        {
+            string message = pkg.ReadString();
+            Player.m_localPlayer.Message(MessageHud.MessageType.Center, message);
         }, adminOnly: true);
 
-        var setKey = new DiscordCommand("setkey", args =>
+        var setKey = new DiscordCommand("setkey", "Set global key", args =>
         {
+            if (args.Length < 2) return;
             var key = args[1];
             if (!Enum.TryParse(key, out GlobalKeys globalKey))
             {
-                Discord.instance.SendMessage(DiscordBotPlugin.m_commandWebhookURL.Value, ZNet.instance.GetWorldName(), "Failed to find global key: " + key);
+                Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), "Failed to find global key: " + key);
                 return;
             }
             ZoneSystem.instance.SetGlobalKey(globalKey);
         }, adminOnly: true);
 
-        var eventList = new DiscordCommand("listevents", _ =>
+        var eventList = new DiscordCommand("listevents", "List of available event names", _ =>
         {
             StringBuilder stringBuilder = new StringBuilder();
             foreach (var randomEvent in RandEventSystem.instance.m_events)
             {
                 stringBuilder.Append($"{randomEvent.m_name}\n");
             }
-            Discord.instance.SendEmbedMessage(DiscordBotPlugin.m_commandWebhookURL.Value, "Available events:", stringBuilder.ToString(), ZNet.instance.GetWorldName());
+            Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, "Available events:", stringBuilder.ToString(), ZNet.instance.GetWorldName());
         }, adminOnly: true);
 
-        var startEvent = new DiscordCommand("event", args =>
+        var startEvent = new DiscordCommand("event", "Starts a event on a player, `<string:EventName>` `<string:PlayerName>`", args =>
         {
+            if (args.Length < 3) return;
             var eventName = args[1].Trim();
             var playerName = args[2].Trim();
 
@@ -216,7 +354,7 @@ public static class DiscordCommands
             {
                 if (ZNet.instance.GetPeerByPlayerName(playerName) is not { } peer)
                 {
-                    Discord.instance.SendMessage(DiscordBotPlugin.m_commandWebhookURL.Value, ZNet.instance.GetWorldName(), "Failed to find " + playerName);
+                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), "Failed to find " + playerName);
                     return;
                 }
 
@@ -225,35 +363,30 @@ public static class DiscordCommands
             
             if (RandEventSystem.instance.GetEvent(eventName) is not {} randEvent)
             {
-                Discord.instance.SendMessage(DiscordBotPlugin.m_commandWebhookURL.Value, ZNet.instance.GetWorldName(), "");
+                Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), "");
                 return;
             }
             RandEventSystem.instance.SetRandomEvent(randEvent, pos);
         }, adminOnly: true);
         
     }
-
-    [HarmonyPatch(typeof(ZNet), nameof(ZNet.OnNewConnection))]
-    private static class ZNet_OnNewConnection_Patch
+    
+    public static bool Spawn(string prefabName, int level, Vector3 pos)
     {
-        private static void Postfix(ZNetPeer peer)
-        {
-            peer.m_rpc.Register<ZPackage>(nameof(RPC_BotToClient), RPC_BotToClient);
-            // register rpc to client
-        }
-    }
-    public static void Spawn(string creatureName, int level, Vector3 pos)
-    {
-        if (ZNetScene.instance.GetPrefab(creatureName) is not { } prefab || !prefab.TryGetComponent(out Character component)) return;
+        if (!ZNetScene.instance) return false;
+        if (ZNetScene.instance.GetPrefab(prefabName) is not { } prefab) return false;
         var random = (UnityEngine.Random.insideUnitSphere * 5f) with { y = 0.0f };
         var location = pos + random;
-        var creature = UnityEngine.Object.Instantiate(prefab, location, Quaternion.identity);
-        if (creature.TryGetComponent(out Character character)) character.SetLevel(level);
+        var gameObject = UnityEngine.Object.Instantiate(prefab, location, Quaternion.identity);
+        if (gameObject.TryGetComponent(out Character character)) character.SetLevel(level);
+        return true;
     }
 
-    public static void GiveItem(string itemName, int amount, int quality, int variant)
+    public static bool GiveItem(string itemName, int amount, int quality, int variant)
     {
-        if (ObjectDB.instance.GetItemPrefab(itemName) is not { } itemPrefab || !itemPrefab.TryGetComponent(out ItemDrop component)) return;
+        if (!Player.m_localPlayer || !ObjectDB.instance) return false;
+        if (ObjectDB.instance.GetItemPrefab(itemName) is not { } itemPrefab || !itemPrefab.TryGetComponent(out ItemDrop component)) return false;
+        
         var itemData = component.m_itemData.Clone();
         itemData.m_dropPrefab = itemPrefab;
         itemData.m_stack = amount;
@@ -261,61 +394,41 @@ public static class DiscordCommands
         itemData.m_variant = variant;
 
         Player.m_localPlayer.GetInventory().AddItem(itemData);
+        return true;
     }
 
     public static void RPC_BotToClient(ZRpc rpc, ZPackage pkg)
     {
         // server sending to clients
         var messageType = pkg.ReadString();
-        switch (messageType)
-        {
-            case "give":
-                if (!Player.m_localPlayer || !ObjectDB.instance) return;
-                var itemName = pkg.ReadString();
-                var amount = pkg.ReadInt();
-                var quality = pkg.ReadInt();
-                var variant = pkg.ReadInt();
-                
-                GiveItem(itemName, amount,quality,variant);
-                break;
-            case "teleport":
-                Vector3 pos = pkg.ReadVector3();
-                Player.m_localPlayer.TeleportTo(pos, Quaternion.identity, true);
-                break;
-            case "spawn":
-                string creatureName = pkg.ReadString();
-                int level = pkg.ReadInt();
-                Spawn(creatureName, level, Player.m_localPlayer.transform.position);
-                break;
-            case "message":
-                string message = pkg.ReadString();
-                Player.m_localPlayer.Message(MessageHud.MessageType.Center, message);
-                break;
-            case "bed":
-                var bedPoint = Game.instance.GetPlayerProfile().GetCustomSpawnPoint();
-                Player.m_localPlayer.TeleportTo(bedPoint, Quaternion.identity, true);
-                break;
-        }
-        
+
+        if (!m_commands.TryGetValue(messageType, out DiscordCommand command)) return;
+        command.Run(pkg);
     }
     
     public class DiscordCommand
     {
-        public readonly Action<string[]> m_action;
-        public readonly bool m_adminOnly = false;
+        [Description("Action ran when Discord component receives a new command")]
+        private readonly Action<string[]> m_action;
+        [Description("Action ran when player receives package from RPC_BotToClient")]
+        private readonly Action<ZPackage>? m_reaction;
+        [Description("If only discord admins are allowed to run command")]
+        private readonly bool m_adminOnly = false;
 
-        public DiscordCommand(string command, Action<string[]> action, bool adminOnly = false)
+        [Description("Register a new discord command")]
+        public DiscordCommand(string command, string description, Action<string[]> action, Action<ZPackage>? reaction = null, bool adminOnly = false)
         {
             m_action = action;
-            m_commands[command] = this;
+            m_reaction = reaction;
             m_adminOnly = adminOnly;
+            m_commands[command] = this;
+            m_descriptions[$"`{command}`"] = description;
         }
 
-        public bool IsAllowed(string discordUserName)
-        {
-            if (!m_adminOnly) return true;
-            return new DiscordBotPlugin.StringListConfig(DiscordBotPlugin.m_discordAdmins.Value).list.Contains(discordUserName);
-        }
+        public bool IsAllowed(string discordUserName) => !m_adminOnly || new DiscordBotPlugin.StringListConfig(DiscordBotPlugin.m_discordAdmins.Value).list.Contains(discordUserName);
+        
         public void Run(string[] args) => m_action.Invoke(args);
+
+        public void Run(ZPackage pkg) => m_reaction?.Invoke(pkg);
     }
 }

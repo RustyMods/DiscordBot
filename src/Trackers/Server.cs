@@ -1,4 +1,5 @@
 ﻿using HarmonyLib;
+using static DiscordBot.DiscordBotPlugin;
 
 namespace DiscordBot.Trackers;
 
@@ -9,10 +10,10 @@ public static class Server
     {
         private static void Postfix(ZNet __instance)
         {
-            if (DiscordBotPlugin.m_serverSaveNotice.Value is DiscordBotPlugin.Toggle.Off) return;
+            if (m_serverSaveNotice.Value is Toggle.Off) return;
             if (!__instance.IsServer()) return;
             var WorldName = __instance.GetWorldName();
-            Discord.instance.SendEmbedMessage(DiscordBotPlugin.m_notificationWebhookURL.Value, "Server is saving!", "", WorldName, Links.ServerIcon);
+            Discord.instance.SendEmbedMessage(Webhook.Notifications, "Server is saving!", "", WorldName, Links.ServerIcon);
         }
     }
     
@@ -21,12 +22,12 @@ public static class Server
     {
         private static void Postfix(ZNet __instance)
         {
-            if (DiscordBotPlugin.m_newPlayerNotice.Value is DiscordBotPlugin.Toggle.Off) return;
+            if (m_newPlayerNotice.Value is Toggle.Off) return;
             if (!__instance.IsServer()) return;
             var playerCount = __instance.GetNrOfPlayers();
             var description = $"{playerCount} players connected!";
             var WorldName = ZNet.instance.GetWorldName();
-            Discord.instance.SendEmbedMessage(DiscordBotPlugin.m_notificationWebhookURL.Value, "New Connection!", description, WorldName, Links.ServerIcon);
+            Discord.instance.SendEmbedMessage(Webhook.Notifications, "New Connection!", description, WorldName, Links.ServerIcon);
         }
     }
 
@@ -35,10 +36,10 @@ public static class Server
     {
         private static void Prefix(ZNet __instance)
         {
-            if (DiscordBotPlugin.m_serverStopNotice.Value is DiscordBotPlugin.Toggle.Off) return;
+            if (m_serverStopNotice.Value is Toggle.Off) return;
             if (!__instance.IsServer()) return;
             var WorldName = ZNet.instance.GetWorldName();
-            Discord.instance.SendEmbedMessage(DiscordBotPlugin.m_notificationWebhookURL.Value, "Server is shutting down!", "", WorldName, Links.ServerIcon);
+            Discord.instance.SendEmbedMessage(Webhook.Notifications, "Server is shutting down!", "", WorldName, Links.ServerIcon);
         }
     }
 }

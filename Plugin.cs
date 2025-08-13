@@ -28,6 +28,8 @@ namespace DiscordBot
         private static readonly ConfigSync ConfigSync = new(ModGUID) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
         private static ConfigEntry<Toggle> _serverConfigLocked = null!;
         public enum Toggle { On = 1, Off = 0 }
+        public enum Webhook { Notifications, Chat, Commands }
+        public enum Channel { Chat, Commands }
 
         public static DiscordBotPlugin m_instance = null!;
         
@@ -45,9 +47,23 @@ namespace DiscordBot
         public static ConfigEntry<string> m_commandWebhookURL = null!;
         public static ConfigEntry<string> m_commandChannelID = null!;
         public static ConfigEntry<int> m_pollInterval = null!;
-        public static ConfigEntry<Toggle> m_poll = null!;
 
         public static ConfigEntry<string> m_discordAdmins = null!;
+
+        public static string GetWebhookURL(Webhook type) => type switch
+        {
+            Webhook.Chat => m_chatWebhookURL.Value,
+            Webhook.Notifications => m_notificationWebhookURL.Value,
+            Webhook.Commands => m_commandWebhookURL.Value,
+            _ => m_chatWebhookURL.Value
+        };
+
+        public static string GetChannelID(Channel type) => type switch
+        {
+            Channel.Chat => m_chatChannelID.Value,
+            Channel.Commands => m_commandChannelID.Value,
+            _ => m_chatChannelID.Value
+        };
 
         public void Awake()
         {
@@ -55,7 +71,6 @@ namespace DiscordBot
             _serverConfigLocked = config("1 - General", "Lock Configuration", Toggle.On, "If on, the configuration is locked and can be changed by server admins only.");
             _ = ConfigSync.AddLockingConfigEntry(_serverConfigLocked);
             m_pollInterval = config("1 - General", "Poll Interval", 5, new ConfigDescription("Set interval between check for messages in discord, in seconds", new AcceptableValueRange<int>(5, 300)));
-            m_poll = config("1 - General", "Poll", Toggle.On, "If on, plugin will start polling discord for messages, turn off, change configs, then turn on again to reset");
 
             m_notificationWebhookURL = config("2 - Notifications", "Webhook URL", "", "Set webhook to receive notifications, like server start, stop, save etc...");
             m_serverStartNotice = config("2 - Notifications", "Startup", Toggle.On, "If on, bot will send message when server is starting");
@@ -90,11 +105,9 @@ namespace DiscordBot
 
         public class StringListConfig
         {
-            public readonly List<string> list = new();
-
-            public StringListConfig(){}
-            public StringListConfig(params string[] items) => list = items.ToList();
+            public readonly List<string> list;
             public StringListConfig(List<string> items) => list = items;
+            public StringListConfig(string items) => list = items.Split(',').ToList();
             
             public static void Draw(ConfigEntryBase cfg)
             {

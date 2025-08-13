@@ -15,7 +15,7 @@ public static class OnNewChat
             if (PlatformManager.DistributionPlatform.LocalUser.PlatformUserID != sender.UserId) return;
             if (type is not Talker.Type.Shout) return;
             if (text == Localization.instance.Localize("$text_player_arrived")) return;
-            Discord.instance.SendMessage(DiscordBotPlugin.m_chatWebhookURL.Value, sender.GetDisplayName(), text);   
+            Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Chat, sender.GetDisplayName(), text);   
         }
     }
 }
