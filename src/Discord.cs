@@ -17,12 +17,7 @@ public class Discord : MonoBehaviour
     [HarmonyPatch(typeof(ZNet), nameof(ZNet.Awake))]
     private static class ZNet_Awake_Patch
     {
-        private static void Postfix(ZNet __instance)
-        {
-            if (!__instance.IsServer()) return;
-            // Only add to server to manage fetch requests and webhook posts
-            m_instance.gameObject.AddComponent<Discord>();
-        }
+        private static void Postfix() => m_instance.gameObject.AddComponent<Discord>();
     }
     
     public static Discord instance = null!;
@@ -43,9 +38,10 @@ public class Discord : MonoBehaviour
         instance = this;
         m_timeLoaded = DateTime.UtcNow;
         if (!ZNet.m_isServer) return;
+        // Only server manages polling
         OnMessageReceived += HandleChatMessage;
         OnCommandReceived += HandleCommands;
-
+        OnError += HandleError;
     }
 
     private void Start()
@@ -60,12 +56,18 @@ public class Discord : MonoBehaviour
         if (!string.IsNullOrEmpty(m_commandChannelID.Value)) StartPollingCommands();
         
         if (m_serverStartNotice.Value is Toggle.On) SendEmbedMessage(Webhook.Notifications, "$msg_server_start", ZNet.instance.GetServerIP(), ZNet.instance.GetWorldName(), Links.ServerIcon);
-        SendMessage(Webhook.Commands, ZNet.instance.GetWorldName(), $"{EmojiHelper.Emoji("question")} type `help` to find list of available commands");
+        SendMessage(Webhook.Commands, ZNet.instance.GetWorldName(), $"{EmojiHelper.Emoji("question")} type `!help` to find list of available commands");
     }
 
     private void OnDestroy()
     {
         StopPolling();
+    }
+
+    private static void HandleError(string message)
+    {
+        if (m_logErrors.Value is Toggle.Off) return;
+        DiscordBotLogger.LogWarning(message);
     }
 
     private void HandleChatMessage(Message message)
@@ -82,15 +84,12 @@ public class Discord : MonoBehaviour
         if (!DiscordCommands.m_commands.TryGetValue(command, out DiscordCommands.DiscordCommand discordCommand))
         {
             SendMessage(Webhook.Commands, ZNet.instance.GetWorldName(), "Failed to find command: " + command);
-            return;
         }
-
-        if (!discordCommand.IsAllowed(message.author.GetFullUsername()))
+        else if (!discordCommand.IsAllowed(message.author.GetFullUsername()))
         {
             SendMessage(Webhook.Commands, ZNet.instance.GetWorldName(), message.author.GetFullUsername() + " not allowed to use command: " + command);
-            return;
         }
-        discordCommand.Run(args);
+        else discordCommand.Run(args);
     }
     
     #region RPC Handlers
@@ -101,13 +100,13 @@ public class Discord : MonoBehaviour
         private static void Postfix(ZNetPeer peer) => peer.m_rpc.Register<string, string>(nameof(RPC_ClientBotMessage),RPC_ClientBotMessage);
     }
 
-    public void BroadcastMessage(string userName, string message)
+    public void BroadcastMessage(string username, string message)
     {
         if (!ZNet.instance || !ZNet.m_isServer) return;
-        foreach (var peer in ZNet.instance.GetPeers()) peer.m_rpc.Invoke(nameof(RPC_ClientBotMessage), userName, message);
+        foreach (var peer in ZNet.instance.GetPeers()) peer.m_rpc.Invoke(nameof(RPC_ClientBotMessage), username, message);
     }
 
-    public static void RPC_ClientBotMessage(ZRpc rpc, string userName, string message) => DisplayChatMessage(userName, message);
+    public static void RPC_ClientBotMessage(ZRpc rpc, string username, string message) => DisplayChatMessage(username, message);
     private static void DisplayChatMessage(string userName, string message)
     {
         string text = $"<color=#{ColorUtility.ToHtmlStringRGB(new Color(0f, 0.5f, 0.5f, 1f))}>[Discord]</color><color=orange>{userName}</color>: {message}";
@@ -117,19 +116,19 @@ public class Discord : MonoBehaviour
     
     #region Sending Messages to Discord
     
-    public void SendMessage(Webhook webhook, string userName, string message)
+    public void SendMessage(Webhook webhook, string username, string message)
     {
         var webhookData = new DiscordWebhookData
         {
             content = Localization.instance.Localize(message),
-            username = userName,
+            username = username,
             avatar_url = Links.DefaultAvatar
         };
         
         StartCoroutine(SendWebhookMessage(webhookData, GetWebhookURL(webhook)));
     }
 
-    public void SendEmbedMessage(Webhook webhook, string title, string content, string userName, string thumbnail = "")
+    public void SendEmbedMessage(Webhook webhook, string title, string content, string username, string thumbnail = "")
     {
         var embed = new Embed
         {
@@ -143,7 +142,7 @@ public class Discord : MonoBehaviour
         }
         var webhookData = new DiscordWebhookData
         {
-            username = userName.IsNullOrWhiteSpace() ? ZNet.instance.GetWorldName() : userName,
+            username = username.IsNullOrWhiteSpace() ? ZNet.instance.GetWorldName() : username,
             avatar_url = Links.DefaultAvatar,
             embeds = new Embed[] {embed}
         };
@@ -151,8 +150,12 @@ public class Discord : MonoBehaviour
         StartCoroutine(SendWebhookMessage(webhookData, GetWebhookURL(webhook)));
     }
     
-    public void SendTableEmbed(Webhook webhook, string title, Dictionary<string, string> tableData, string userName, string thumbnail = "")
+    public void SendTableEmbed(Webhook webhook, string title, Dictionary<string, string> tableData, string username, string thumbnail = "")
     {
+        if (tableData.Count <= 0)
+        {
+            OnError?.Invoke("Table data is empty");
+        }
         var fields = new List<EmbedField>();
 
         foreach (var kvp in tableData)
@@ -184,7 +187,7 @@ public class Discord : MonoBehaviour
 
         var webhookData = new DiscordWebhookData
         {
-            username = string.IsNullOrWhiteSpace(userName) ? ZNet.instance.GetWorldName() : userName,
+            username = string.IsNullOrWhiteSpace(username) ? ZNet.instance.GetWorldName() : username,
             avatar_url = Links.DefaultAvatar,
             embeds = new Embed[] { embed }
         };

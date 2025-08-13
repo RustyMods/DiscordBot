@@ -24,11 +24,49 @@ public static class DiscordCommands
 
     public static void Setup()
     {
-        var help = new DiscordCommand("help", "List of commands", _ =>
+        var help = new DiscordCommand("!help", "List of commands", _ =>
         {
-            Discord.instance.SendTableEmbed(DiscordBotPlugin.Webhook.Commands, "List of available commands", m_descriptions, ZNet.instance.GetWorldName());
+            // max 25 embed elements in a single message
+            if (m_descriptions.Count > 25)
+            {
+                // Calculate how many embeds we need (25 items per embed)
+                const int itemsPerEmbed = 25;
+                int totalEmbeds = (int)Math.Ceiling((double)m_descriptions.Count / itemsPerEmbed);
+    
+                var descriptionsList = m_descriptions.ToList();
+                string worldName = ZNet.instance.GetWorldName();
+    
+                // Split into multiple embeds
+                for (int i = 0; i < totalEmbeds; i++)
+                {
+                    var chunk = descriptionsList
+                        .Skip(i * itemsPerEmbed)
+                        .Take(itemsPerEmbed)
+                        .ToDictionary(kv => kv.Key, kv => kv.Value);
+        
+                    string title = totalEmbeds == 1 
+                        ? "List of available commands" 
+                        : $"List of available commands (Part {i + 1} of {totalEmbeds})";
+        
+                    Discord.instance.SendTableEmbed(
+                        DiscordBotPlugin.Webhook.Commands, 
+                        title, 
+                        chunk, 
+                        worldName
+                    );
+                }
+            }
+            else
+            {
+                Discord.instance.SendTableEmbed(
+                    DiscordBotPlugin.Webhook.Commands, 
+                    "List of available commands", 
+                    m_descriptions, 
+                    ZNet.instance.GetWorldName()
+                );
+            }
         }, emoji: "question");
-        var listAdmins = new DiscordCommand("listadmins", "List of discord admins registered to plugin", _ =>
+        var listAdmins = new DiscordCommand("!listadmins", "List of discord admins registered to plugin", _ =>
         {
             StringBuilder stringBuilder = new StringBuilder();
             foreach (var username in new DiscordBotPlugin.StringListConfig(DiscordBotPlugin.m_discordAdmins.Value).list)
@@ -37,7 +75,7 @@ public static class DiscordCommands
             }
             Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, "List of discord usernames who can use commands:", stringBuilder.ToString(), ZNet.instance.GetWorldName());
         }, emoji: "warning");
-        var addDiscordAdmin = new DiscordCommand("addadmin",
+        var addDiscordAdmin = new DiscordCommand("!addadmin",
             "Adds discord username to admin list, to enable using commands, `<string:Username>`",
             args =>
             {
@@ -48,7 +86,7 @@ public static class DiscordCommands
                 DiscordBotPlugin.m_discordAdmins.Value = list.ToString();
                 listAdmins.Run(new []{"listadmins"});
             }, adminOnly: true, emoji: "key");
-        var removeDiscordAdmin = new DiscordCommand("removeadmin",
+        var removeDiscordAdmin = new DiscordCommand("!removeadmin",
             "Remove discord username from admin list, to disable using commands, `<string:Username>`",
             args =>
             {
@@ -58,20 +96,20 @@ public static class DiscordCommands
                 DiscordBotPlugin.m_discordAdmins.Value = list.ToString();
                 listAdmins.Run(new []{"listadmins"});
             }, adminOnly: true, emoji: "lock");
-        var listEnv = new DiscordCommand("listenv", "List of available environments", _ =>
+        var listEnv = new DiscordCommand("!listenv", "List of available environments", _ =>
         {
             StringBuilder stringBuilder = new StringBuilder();
             foreach (var env in EnvMan.instance.m_environments) stringBuilder.Append($"`{env.m_name}`\n");
             Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, "List of available environments:", stringBuilder.ToString(), ZNet.instance.GetWorldName());
         }, emoji: "tornado");
-        var forceEnv = new DiscordCommand("env", "Force environment on all players", args =>
+        var forceEnv = new DiscordCommand("!env", "Force environment on all players", args =>
             {
                 if (args.Length < 2) return;
                 var environment = args[1].Trim();
                 if (EnvMan.instance.GetEnv(environment) is { } env)
                 {
                     var pkg = new ZPackage();
-                    pkg.Write("env");
+                    pkg.Write("!env");
                     pkg.Write(environment);
                     foreach(var peer in ZNet.instance.GetPeers()) peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
                     if (Player.m_localPlayer)
@@ -90,15 +128,15 @@ public static class DiscordCommands
                 EnvMan.instance.m_debugEnv = environment;
             },
             adminOnly: true, emoji: "sparkle");
-        var resetEnv = new DiscordCommand("resetenv", "Reset environment on all players", _ =>
+        var resetEnv = new DiscordCommand("!resetenv", "Reset environment on all players", _ =>
             {
                 var pkg = new ZPackage();
-                pkg.Write("resetenv");
+                pkg.Write("!resetenv");
                 foreach(var peer in ZNet.instance.GetPeers()) peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
                 if (Player.m_localPlayer) EnvMan.instance.m_debugEnv = "";
             }, _ => EnvMan.instance.m_debugEnv = "",
             adminOnly: true, emoji: "sparkle");
-        var listPlayers = new DiscordCommand("listplayers", "List of active players", _ =>
+        var listPlayers = new DiscordCommand("!listplayers", "List of active players", _ =>
         {
             Dictionary<string, string> content = new Dictionary<string, string>();
             foreach (var player in ZNet.instance.m_players)
@@ -108,7 +146,7 @@ public static class DiscordCommands
             Discord.instance.SendTableEmbed(DiscordBotPlugin.Webhook.Commands, "List of active players", content, ZNet.instance.GetWorldName());
         }, adminOnly: true, emoji:"dragon");
 
-        var kick = new DiscordCommand("kick", "Kicks player from server, `<string:PlayerName>`", args =>
+        var kick = new DiscordCommand("!kick", "Kicks player from server, `<string:PlayerName>`", args =>
         {
             if (args.Length < 2) return;
             var playerName = args[1].Trim();
@@ -123,7 +161,7 @@ public static class DiscordCommands
             }
         }, adminOnly:true, emoji:"x");
 
-        var give = new DiscordCommand("give", "Adds item directly into player inventory, `<string:PlayerName>` `<string:ItemName>` `<int:Stack>` `<int?:Quality>` `<int?:Variant>`", args =>
+        var give = new DiscordCommand("!give", "Adds item directly into player inventory, `<string:PlayerName>` `<string:ItemName>` `<int:Stack>` `<int?:Quality>` `<int?:Variant>`", args =>
         {
             if (args.Length < 4) return;
             var playerName = args[1].Trim();
@@ -139,7 +177,7 @@ public static class DiscordCommands
             else if (ZNet.instance.GetPeerByPlayerName(playerName) is { } peer)
             {
                 var pkg = new ZPackage();
-                pkg.Write("give");
+                pkg.Write("!give");
                 pkg.Write(itemName);
                 pkg.Write(amount);
                 pkg.Write(quality);
@@ -161,7 +199,7 @@ public static class DiscordCommands
             GiveItem(itemName, amount,quality,variant);
         }, adminOnly:true, emoji:"gift");
 
-        var teleportAll = new DiscordCommand("teleportall",
+        var teleportAll = new DiscordCommand("!teleportall",
             "Teleports all players to location, `<float:x>` `<float:y>` `<float:z>`",
             args =>
             {
@@ -171,7 +209,7 @@ public static class DiscordCommands
                 {
                     var pos = new Vector3(x, y, z);
                     var pkg = new ZPackage();
-                    pkg.Write("teleport"); // use teleport to discord command
+                    pkg.Write("!teleport"); // use teleport to discord command
                     pkg.Write("vector");
                     pkg.Write(pos);
                     foreach(var peer in ZNet.instance.GetPeers()) peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
@@ -183,7 +221,7 @@ public static class DiscordCommands
                 }
             }, adminOnly: true, emoji:"golf");
 
-        var teleportTo = new DiscordCommand("teleport", "Teleport player to location, `<string:PlayerName>` `<string:bed>` or `<string:OtherPlayerName>` or `<float:x>` `<float:y>` `<float:z>`", args =>
+        var teleportTo = new DiscordCommand("!teleport", "Teleport player to location, `<string:PlayerName>` `<string:bed>` or `<string:OtherPlayerName>` or `<float:x>` `<float:y>` `<float:z>`", args =>
         {
             if (args.Length < 5) return;
             var playerName = args[1].Trim();
@@ -198,7 +236,7 @@ public static class DiscordCommands
                 else if (ZNet.instance.GetPeerByPlayerName(playerName) is { } peer)
                 {
                     ZPackage pkg = new ZPackage();
-                    pkg.Write("teleport");
+                    pkg.Write("!teleport");
                     pkg.Write("bed");
                     peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
                 }
@@ -235,7 +273,7 @@ public static class DiscordCommands
                 else if (ZNet.instance.GetPeerByPlayerName(playerName) is { } peer)
                 {
                     var pkg = new ZPackage();
-                    pkg.Write("teleport");
+                    pkg.Write("!teleport");
                     pkg.Write("vector");
                     pkg.Write(pos);
                     peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
@@ -261,7 +299,7 @@ public static class DiscordCommands
             }
         },adminOnly:true, emoji:"run");
 
-        var spawn = new DiscordCommand("spawn", "spawns prefab at location, `<string:PrefabName>` `<int:Level>` `<string:PlayerName>` or `<float:x>` `<float:y>` `<float:z>`", args =>
+        var spawn = new DiscordCommand("!spawn", "spawns prefab at location, `<string:PrefabName>` `<int:Level>` `<string:PlayerName>` or `<float:x>` `<float:y>` `<float:z>`", args =>
         {
             if (args.Length < 4) return;
             var prefabName = args[1].Trim();
@@ -296,7 +334,7 @@ public static class DiscordCommands
                 else if (ZNet.instance.GetPeerByPlayerName(playerName) is {} peer)
                 {
                     var pkg = new ZPackage();
-                    pkg.Write("spawn");
+                    pkg.Write("!spawn");
                     pkg.Write(prefabName);
                     pkg.Write(level);
                     peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
@@ -314,22 +352,23 @@ public static class DiscordCommands
             Spawn(creatureName, level, Player.m_localPlayer.transform.position);
         },adminOnly: true, emoji:"exclamation");
 
-        var save = new DiscordCommand("save", "Save player profiles and world", _ =>
+        var save = new DiscordCommand("!save", "Save player profiles and world", _ =>
         {
             ZNet.instance.Save(true, true, true);
         }, adminOnly: true, emoji:"save");
 
-        var shutDown = new DiscordCommand("shutdown", "Save player profiles, save world and shutdown, bot cannot start server", _ =>
+        var shutDown = new DiscordCommand("!shutdown", "Save player profiles, save world and shutdown, bot cannot start server", _ =>
         {
             ZNet.instance.SaveOtherPlayerProfiles();
             ZNet.instance.Shutdown();
+            Application.Quit();
         }, adminOnly: true, emoji:"stop");
 
-        var message = new DiscordCommand("message", "Broadcast message to all players which shows up center of screen", args =>
+        var message = new DiscordCommand("!message", "Broadcast message to all players which shows up center of screen", args =>
         {
             var message = string.Join(" ", args.Skip(1));
             var pkg = new ZPackage();
-            pkg.Write("message");
+            pkg.Write("!message");
             pkg.Write(message);
             foreach(var peer in ZNet.instance.GetPeers()) peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
             if (Player.m_localPlayer) Player.m_localPlayer.Message(MessageHud.MessageType.Center, message);
@@ -339,7 +378,7 @@ public static class DiscordCommands
             Player.m_localPlayer.Message(MessageHud.MessageType.Center, message);
         }, adminOnly: true, emoji:"smile");
 
-        var setKey = new DiscordCommand("setkey", "Set global key", args =>
+        var setKey = new DiscordCommand("!setkey", "Set global key", args =>
         {
             if (args.Length < 2) return;
             var key = args[1];
@@ -351,7 +390,7 @@ public static class DiscordCommands
             ZoneSystem.instance.SetGlobalKey(globalKey);
         }, adminOnly: true, emoji:"unicorn");
 
-        var eventList = new DiscordCommand("listevents", "List of available event names", _ =>
+        var eventList = new DiscordCommand("!listevents", "List of available event names", _ =>
         {
             StringBuilder stringBuilder = new StringBuilder();
             foreach (var randomEvent in RandEventSystem.instance.m_events)
@@ -361,7 +400,7 @@ public static class DiscordCommands
             Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, "Available events:", stringBuilder.ToString(), ZNet.instance.GetWorldName());
         }, adminOnly: true, emoji:"moon");
 
-        var startEvent = new DiscordCommand("event", "Starts a event on a player, `<string:EventName>` `<string:PlayerName>`", args =>
+        var startEvent = new DiscordCommand("!event", "Starts a event on a player, `<string:EventName>` `<string:PlayerName>`", args =>
         {
             if (args.Length < 3) return;
             var eventName = args[1].Trim();
@@ -390,13 +429,13 @@ public static class DiscordCommands
             }
             RandEventSystem.instance.SetRandomEvent(randEvent, pos);
         }, adminOnly: true, emoji:"star");
-        var listStatus = new DiscordCommand("liststatus", "List of available status effects", args =>
+        var listStatus = new DiscordCommand("!liststatus", "List of available status effects", args =>
         {
             StringBuilder stringBuilder = new StringBuilder();
             foreach (var status in ObjectDB.instance.m_StatusEffects) stringBuilder.Append($"`{status.name}`\n");
             Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, "Available status effects:", stringBuilder.ToString(), ZNet.instance.GetWorldName());
         }, emoji: "rocket");
-        var addStatus = new DiscordCommand("addstatus", "Add status effect on player, `<string:PlayerName>` `<string:StatusEffect>` `<float:Duration>`", args =>
+        var addStatus = new DiscordCommand("!addstatus", "Add status effect on player, `<string:PlayerName>` `<string:StatusEffect>` `<float:Duration>`", args =>
             {
                 if (args.Length != 4) return;
                 var playerName = args[1].Trim();
@@ -417,7 +456,7 @@ public static class DiscordCommands
                     else if (ZNet.instance.GetPeerByPlayerName(playerName) is { } peer)
                     {
                         var pkg = new ZPackage();
-                        pkg.Write("addstatus");
+                        pkg.Write("!addstatus");
                         pkg.Write(statusName);
                         pkg.Write((double)duration);
                         peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
@@ -436,8 +475,36 @@ public static class DiscordCommands
                 if (duration > 0f) status.m_ttl = duration;
             },
             adminOnly: true, emoji: "pizza");
+        var heal = new DiscordCommand("!heal", "Heals to full health & stamina, `<string:PlayerName>`", args =>
+            {
+                if (args.Length < 2) return;
+                var playerName = args[1].Trim();
+                if (Player.m_localPlayer && Player.m_localPlayer.GetPlayerName() == playerName)
+                {
+                    Player.m_localPlayer.Heal(Player.m_localPlayer.GetMaxHealth());
+                    Player.m_localPlayer.AddStamina(Player.m_localPlayer.GetMaxStamina());
+                    Player.m_localPlayer.AddEitr(Player.m_localPlayer.GetMaxEitr());
+                }
+                else if (ZNet.instance.GetPeerByPlayerName(playerName) is { } peer)
+                {
+                    var pkg = new ZPackage();
+                    pkg.Write("!heal");
+                    peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
+                }
+                else
+                {
+                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), "Failed to find player: " + playerName);
+                }
 
-        var die = new DiscordCommand("die", "Kills player, <string:PlayerName>", args =>
+            },
+            _ =>
+            {
+                Player.m_localPlayer.Heal(Player.m_localPlayer.GetMaxHealth());
+                Player.m_localPlayer.AddStamina(Player.m_localPlayer.GetMaxStamina());
+                Player.m_localPlayer.AddEitr(Player.m_localPlayer.GetMaxEitr());
+            }, adminOnly: true, emoji: "heart");
+
+        var die = new DiscordCommand("!die", "Kills player, <string:PlayerName>", args =>
             {
                 if (args.Length < 2) return;
                 var playerName = args[1].Trim();
@@ -451,7 +518,7 @@ public static class DiscordCommands
                 else if (ZNet.instance.GetPeerByPlayerName(playerName) is { } peer)
                 {
                     var pkg = new ZPackage();
-                    pkg.Write("die");
+                    pkg.Write("!die");
                     peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
                 }
                 else
@@ -466,13 +533,13 @@ public static class DiscordCommands
                 });
             },
             adminOnly: true, emoji: "tiger");
-        var listSkills = new DiscordCommand("listskills", "List of available skills", args =>
+        var listSkills = new DiscordCommand("!listskills", "List of available skills", args =>
         {
             StringBuilder stringBuilder = new StringBuilder();
-            foreach (var skill in Enum.GetValues(typeof(Skills.SkillType))) stringBuilder.Append(skill);
+            foreach (var skill in Enum.GetValues(typeof(Skills.SkillType))) stringBuilder.Append($"{Formatting.Format(skill.ToString(), Formatting.TextFormat.InlineCode)}" + "\n");
             Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, "Available skill types:", stringBuilder.ToString(), ZNet.instance.GetWorldName());
         }, emoji: "pray");
-        var raiseSkill = new DiscordCommand("raiseskill",
+        var raiseSkill = new DiscordCommand("!raiseskill",
             "Raises skill level, `<string:PlayerName>` `<string:SkillType>` `<float:Amount>`",
             args =>
             {
@@ -488,14 +555,15 @@ public static class DiscordCommands
                 {
                     if (Player.m_localPlayer && Player.m_localPlayer.GetPlayerName() == playerName)
                     {
-                        Player.m_localPlayer.RaiseSkill(type, amount);
+                        Player.m_localPlayer.GetSkills().CheatRaiseSkill(skillType, amount);
                     }
                     else if (ZNet.instance.GetPeerByPlayerName(playerName) is { } peer)
                     {
                         var pkg = new ZPackage();
-                        pkg.Write("raiseskill");
+                        pkg.Write("!raiseskill");
                         pkg.Write(skillType);
                         pkg.Write((double)amount);
+                        peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
                     }
                     else
                     {
@@ -506,11 +574,10 @@ public static class DiscordCommands
             {
                 var skillType = pkg.ReadString();
                 var amount = (float)pkg.ReadDouble();
-                if (!Enum.TryParse(skillType, out Skills.SkillType type)) return;
-                Player.m_localPlayer.RaiseSkill(type, amount);
+                Player.m_localPlayer.GetSkills().CheatRaiseSkill(skillType, amount);
             }, adminOnly: true, emoji: "muscle");
 
-        var pos = new DiscordCommand("pos", "Player position, `<string:PlayerName>`", args =>
+        var pos = new DiscordCommand("!pos", "Player position, `<string:PlayerName>`", args =>
         {
             if (args.Length < 2) return;
             var playerName = args[1].Trim();
@@ -532,6 +599,49 @@ public static class DiscordCommands
             Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), $"{playerName} position: {pos.x},{pos.y},{pos.z}");
             
         }, adminOnly: true, emoji: "rose");
+        var stats = new DiscordCommand("!stats", "Player stats, player must be online, `<string:PlayerName>`", args =>
+        {
+            if (args.Length < 2) return;
+            var playerName = args[1].Trim();
+            if (Player.m_localPlayer && Player.m_localPlayer.GetPlayerName() == playerName)
+            {
+                var profile = Game.instance.GetPlayerProfile();
+                StringBuilder stringBuilder = new StringBuilder();
+                foreach (var kvp in profile.m_playerStats.m_stats)
+                {
+                    if (kvp.Value > 0f)
+                    {
+                        stringBuilder.Append(
+                            $"{Formatting.Format(kvp.Key.ToString(), Formatting.TextFormat.Bold)}: {Formatting.Format(kvp.Value.ToString("0.0"), Formatting.TextFormat.InlineCode)}\n");
+                    }
+                }
+                Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, $"{playerName} Stats", stringBuilder.ToString(), ZNet.instance.GetWorldName());
+            } 
+            else if (ZNet.instance.GetPeerByPlayerName(playerName) is { } peer)
+            {
+                var pkg = new ZPackage();
+                pkg.Write("!stats");
+                peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
+            }
+            else
+            {
+                Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), "Failed to find player: " + playerName);
+            }
+        }, _ =>
+        {
+            // this works differently - player receives this RPC and then uses discord bot to send a webhook message
+            var profile = Game.instance.GetPlayerProfile();
+            StringBuilder stringBuilder = new StringBuilder();
+            foreach (var kvp in profile.m_playerStats.m_stats)
+            {
+                if (kvp.Value > 0f)
+                {
+                    stringBuilder.Append(
+                        $"{Formatting.Format(kvp.Key.ToString(), Formatting.TextFormat.Bold)}: {Formatting.Format(kvp.Value.ToString("0.0"), Formatting.TextFormat.InlineCode)}\n");
+                }
+            }
+            Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, $"{profile.m_playerName} Stats", stringBuilder.ToString(), ZNet.instance.GetWorldName());
+        },emoji: "wine");
     }
     
     public static bool Spawn(string prefabName, int level, Vector3 pos)
@@ -563,9 +673,9 @@ public static class DiscordCommands
     public static void RPC_BotToClient(ZRpc rpc, ZPackage pkg)
     {
         // server sending to clients
-        var messageType = pkg.ReadString();
+        var commandKey = pkg.ReadString();
 
-        if (!m_commands.TryGetValue(messageType, out DiscordCommand command)) return;
+        if (!m_commands.TryGetValue(commandKey, out DiscordCommand command)) return;
         command.Run(pkg);
     }
     
@@ -576,9 +686,7 @@ public static class DiscordCommands
         [Description("Action runs when player receives package from RPC_BotToClient")]
         private readonly Action<ZPackage>? m_reaction;
         [Description("If only discord admins are allowed to run command")]
-        private readonly bool m_adminOnly = false;
-        [Description("If secret, not added to description dictionary which prints when using help command")] 
-        private readonly bool m_isSecret;
+        private readonly bool m_adminOnly;
 
         [Description("Register a new discord command")]
         public DiscordCommand(string command, string description, Action<string[]> action, Action<ZPackage>? reaction = null, bool adminOnly = false, bool isSecret = false, string emoji = "")
@@ -586,9 +694,13 @@ public static class DiscordCommands
             m_action = action;
             m_reaction = reaction;
             m_adminOnly = adminOnly;
-            m_isSecret = isSecret;
             m_commands[command] = this;
-            if (!m_isSecret) m_descriptions[(string.IsNullOrEmpty(emoji) ? "" : $"{EmojiHelper.Emoji(emoji)} ") + $"`{command}`"] = description + (adminOnly ? $"\n\n{Formatting.Format("[Only Admin]", Formatting.TextFormat.BoldItalic)}" : "");
+            if (!isSecret)
+            {
+                string commandKey = BuildCommandKey(command, emoji);
+                string commandDescription = BuildCommandDescription(description, adminOnly);
+                m_descriptions[commandKey] = commandDescription;
+            }       
         }
 
         public bool IsAllowed(string discordUserName) => !m_adminOnly || new DiscordBotPlugin.StringListConfig(DiscordBotPlugin.m_discordAdmins.Value).list.Contains(discordUserName);
@@ -596,5 +708,18 @@ public static class DiscordCommands
         public void Run(string[] args) => m_action.Invoke(args);
 
         public void Run(ZPackage pkg) => m_reaction?.Invoke(pkg);
+        
+        private static string BuildCommandKey(string command, string emoji)
+        {
+            string emojiPrefix = string.IsNullOrEmpty(emoji) ? "" : $"{EmojiHelper.Emoji(emoji)} ";
+            return $"{emojiPrefix}`{command}`";
+        }
+
+        private static string BuildCommandDescription(string description, bool adminOnly)
+        {
+            if (!adminOnly) return description;
+            string adminSuffix = $"\n\n{Formatting.Format("[Only Admin]", Formatting.TextFormat.BoldItalic)}";
+            return description + adminSuffix;
+        }
     }
 }

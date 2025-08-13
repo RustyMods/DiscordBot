@@ -201,9 +201,9 @@ Send commands in your designated command channel:
 ### 🏃 `teleport` **[Admin Only]**
 **Description:** Teleport player to location, bed, or another player  
 **Usage:**
-- `!teleport <string:PlayerName> bed` - Teleport to bed
-- `!teleport <string:PlayerName> <string:OtherPlayerName>` - Teleport to another player
-- `!teleport <string:PlayerName> <float:x> <float:y> <float:z>` - Teleport to coordinates
+- `teleport <string:PlayerName> bed` - Teleport to bed
+- `teleport <string:PlayerName> <string:OtherPlayerName>` - Teleport to another player
+- `teleport <string:PlayerName> <float:x> <float:y> <float:z>` - Teleport to coordinates
 
 ### ⛳ `teleportall` **[Admin Only]**
 **Description:** Teleports all players to specified coordinates  

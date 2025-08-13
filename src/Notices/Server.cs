@@ -24,7 +24,8 @@ public static class Server
         {
             if (m_newPlayerNotice.Value is Toggle.Off) return;
             if (!__instance.IsServer()) return;
-            var playerCount = __instance.GetNrOfPlayers();
+            var playerCount = __instance.m_peers.Count;
+            if (Player.m_localPlayer) playerCount++;
             var description = $"{playerCount} $label_players_connected!";
             var WorldName = ZNet.instance.GetWorldName();
             Discord.instance.SendEmbedMessage(Webhook.Notifications, $"{EmojiHelper.Emoji("donut")} $title_new_connection", description, WorldName, Links.ServerIcon);

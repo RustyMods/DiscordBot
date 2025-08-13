@@ -50,6 +50,7 @@ namespace DiscordBot
         public static ConfigEntry<int> m_pollInterval = null!;
 
         public static ConfigEntry<string> m_discordAdmins = null!;
+        public static ConfigEntry<Toggle> m_logErrors = null!;
 
         public static string GetWebhookURL(Webhook type) => type switch
         {
@@ -73,7 +74,8 @@ namespace DiscordBot
             _serverConfigLocked = config("1 - General", "Lock Configuration", Toggle.On, "If on, the configuration is locked and can be changed by server admins only.");
             _ = ConfigSync.AddLockingConfigEntry(_serverConfigLocked);
             m_pollInterval = config("1 - General", "Poll Interval", 5, new ConfigDescription("Set interval between check for messages in discord, in seconds", new AcceptableValueRange<int>(5, 300)));
-
+            m_logErrors = config("1 - General", "Log Errors", Toggle.Off, "If on, errors will log to console as warnings");
+            
             m_notificationWebhookURL = config("2 - Notifications", "Webhook URL", "", "Set webhook to receive notifications, like server start, stop, save etc...");
             m_serverStartNotice = config("2 - Notifications", "Startup", Toggle.On, "If on, bot will send message when server is starting");
             m_serverStopNotice = config("2 - Notifications", "Shutdown", Toggle.On, "If on, bot will send message when server is shutting down");
