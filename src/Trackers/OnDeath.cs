@@ -13,7 +13,10 @@ public static class OnDeath
             
             if (__instance != Player.m_localPlayer) return;
             if (__instance.m_nview.GetZDO() == null) return;
-            if (__instance.m_nview.GetZDO().GetBool(ZDOVars.s_dead)) return;
+            // Prevent this from running multiple times.
+            // The first time OnDeath is called, we set ZDO variable `s_dead` to true.
+            // This ensures that this patch only triggers once per instance, on the first death call.
+            // Since Player isn't destroyed instantly
             string killedBy = "Unknown";
             string avatar = "";
             if (__instance.m_lastHit is { } lastHit && lastHit.GetAttacker() is { } killer)
@@ -26,25 +29,25 @@ public static class OnDeath
             }
             else if (__instance.m_lastHit is {} hit)
             {
-                string FormatCamelOrPascal(string input)
+                string Format(string input)
                 {
                     if (string.IsNullOrWhiteSpace(input))
                         return string.Empty;
 
-                    // Insert spaces before uppercase letters (except first)
+                    // Insert spaces before uppercase letters (except the first)
                     string spaced = System.Text.RegularExpressions.Regex.Replace(
                         input,
                         "(?<!^)([A-Z])",
                         " $1"
                     );
 
-                    // Lowercase everything except the first letter
-                    return char.ToUpper(spaced[0]) + spaced.Substring(1).ToLower();
+                    // Make everything lowercase
+                    return spaced.ToLower();
                 }
 
-                killedBy = FormatCamelOrPascal(hit.m_hitType.ToString()).ToLower();
+                killedBy = Format(hit.m_hitType.ToString());
             }
-            Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Notifications, __instance.GetPlayerName() + " has died!", $"Killed by {killedBy}", "Valheim Bot", avatar);
+            Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Notifications, $"{EmojiHelper.Emoji("balloon")} {__instance.GetPlayerName()} has died!", $"Killed by {killedBy}", "Valheim Bot", avatar);
             
         }
     }

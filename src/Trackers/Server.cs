@@ -13,7 +13,7 @@ public static class Server
             if (m_serverSaveNotice.Value is Toggle.Off) return;
             if (!__instance.IsServer()) return;
             var WorldName = __instance.GetWorldName();
-            Discord.instance.SendEmbedMessage(Webhook.Notifications, "Server is saving!", "", WorldName, Links.ServerIcon);
+            Discord.instance.SendMessage(Webhook.Notifications, WorldName, $"{EmojiHelper.Emoji("save")} Server is saving!");
         }
     }
     
@@ -27,7 +27,7 @@ public static class Server
             var playerCount = __instance.GetNrOfPlayers();
             var description = $"{playerCount} players connected!";
             var WorldName = ZNet.instance.GetWorldName();
-            Discord.instance.SendEmbedMessage(Webhook.Notifications, "New Connection!", description, WorldName, Links.ServerIcon);
+            Discord.instance.SendEmbedMessage(Webhook.Notifications, $"{EmojiHelper.Emoji("donut")} New Connection!", description, WorldName, Links.ServerIcon);
         }
     }
 
@@ -39,7 +39,7 @@ public static class Server
             if (m_serverStopNotice.Value is Toggle.Off) return;
             if (!__instance.IsServer()) return;
             var WorldName = ZNet.instance.GetWorldName();
-            Discord.instance.SendEmbedMessage(Webhook.Notifications, "Server is shutting down!", "", WorldName, Links.ServerIcon);
+            Discord.instance.SendMessage(Webhook.Notifications, WorldName, $"{EmojiHelper.Emoji("stop")} Server is shutting down!");
         }
     }
 }

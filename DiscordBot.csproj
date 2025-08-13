@@ -124,6 +124,8 @@
         <Compile Include="Properties\AssemblyInfo.cs" />
         <Compile Include="src\Commands.cs" />
         <Compile Include="src\Discord.cs" />
+        <Compile Include="src\Emoji.cs" />
+        <Compile Include="src\Formatting.cs" />
         <Compile Include="src\Links.cs" />
         <Compile Include="src\Token.cs" />
         <Compile Include="src\Trackers\OnNewChat.cs" />
