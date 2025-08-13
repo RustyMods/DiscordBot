@@ -88,7 +88,7 @@ namespace DiscordBot
             Config.Save();
         }
 
-        private class StringListConfig
+        public class StringListConfig
         {
             public readonly List<string> list = new();
 

@@ -25,7 +25,6 @@ public class Discord : MonoBehaviour
     public event Action<string>? OnError;
     
     private string m_lastMessageID = "";
-    private string m_lastCommandID = "";
     private bool m_isPollingChatter;
     private bool m_isPollingCommands;
 
@@ -39,18 +38,7 @@ public class Discord : MonoBehaviour
         OnMessageReceived += HandleChatMessage;
         OnCommandReceived += HandleCommands;
         if (DiscordBotPlugin.m_serverStartNotice.Value is DiscordBotPlugin.Toggle.On)
-            SendEmbedMessage(DiscordBotPlugin.m_chatWebhookURL.Value, "Server is booting up!", ZNet.instance.GetServerIP(), ZNet.instance.GetWorldName(), Links.ServerIcon);
-        
-        void OnConfigChange(object sender, EventArgs args)
-        {
-            DiscordBotPlugin.DiscordBotLogger.LogWarning("Config changed, reloading coroutines");
-            StopPolling();
-            StopAllCoroutines();
-            if (DiscordBotPlugin.m_poll.Value is DiscordBotPlugin.Toggle.Off) return;
-            Start();
-        }
-
-        DiscordBotPlugin.m_poll.SettingChanged += OnConfigChange;
+            SendEmbedMessage(DiscordBotPlugin.m_notificationWebhookURL.Value, "Server is booting up!", ZNet.instance.GetServerIP(), ZNet.instance.GetWorldName(), Links.ServerIcon);
     }
 
     private void Start()
@@ -229,10 +217,6 @@ public class Discord : MonoBehaviour
     private IEnumerator GetChannelCommands()
     {
         string url = $"https://discord.com/api/v10/channels/{DiscordBotPlugin.m_commandChannelID.Value}/messages?limit=1";
-        if (!string.IsNullOrEmpty(m_lastCommandID))
-        {
-            url += $"&after={m_lastCommandID}";
-        }
 
         using UnityWebRequest request = UnityWebRequest.Get(url);
         request.SetRequestHeader("Authorization", $"Bot {Token.BOT_TOKEN}");
@@ -248,10 +232,13 @@ public class Discord : MonoBehaviour
                 if (messages is not { Length: > 0 }) yield break;
                 var message = messages[0];
                 if (message.author.bot) yield break;
+                
+                
                 var timeStamp = DateTime.Parse(message.timestamp).ToUniversalTime(); // local time, so convert
-                if (m_timeLoaded > timeStamp) yield break;
-                if (!string.IsNullOrEmpty(m_lastCommandID) && ulong.Parse(message.id) <= ulong.Parse(m_lastCommandID)) yield break;
-                m_lastCommandID = message.id;
+                if (m_timeLoaded > timeStamp)
+                {
+                    yield break;
+                }
 
                 OnCommandReceived?.Invoke(message);
             }

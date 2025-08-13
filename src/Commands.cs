@@ -74,6 +74,27 @@ public static class DiscordCommands
             var playerName = args[1].Trim();
             var otherPlayerName = args[2].Trim();
             Vector3 pos;
+
+            if (otherPlayerName == "bed")
+            {
+                if (Player.m_localPlayer)
+                {
+                    pos = Game.instance.GetPlayerProfile().GetCustomSpawnPoint();
+                    Player.m_localPlayer.TeleportTo(pos, Quaternion.identity, true);
+                }
+                else
+                {
+                    
+                    ZPackage pkg = new ZPackage();
+                    pkg.Write("bed");
+                    if (ZNet.instance.GetPeerByPlayerName(playerName) is not { } peer) return;
+                    peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
+                }
+                
+                return;
+            }
+            
+            
             
             if (Player.m_localPlayer && Player.m_localPlayer.GetPlayerName() == otherPlayerName)
             {
@@ -215,9 +236,12 @@ public static class DiscordCommands
     [HarmonyPatch(typeof(ZNet), nameof(ZNet.OnNewConnection))]
     private static class ZNet_OnNewConnection_Patch
     {
-        private static void Postfix(ZNetPeer peer) => peer.m_rpc.Register<ZPackage>(nameof(RPC_BotToClient), RPC_BotToClient);
+        private static void Postfix(ZNetPeer peer)
+        {
+            peer.m_rpc.Register<ZPackage>(nameof(RPC_BotToClient), RPC_BotToClient);
+            // register rpc to client
+        }
     }
-
     public static void Spawn(string creatureName, int level, Vector3 pos)
     {
         if (ZNetScene.instance.GetPrefab(creatureName) is not { } prefab || !prefab.TryGetComponent(out Character component)) return;
@@ -241,6 +265,7 @@ public static class DiscordCommands
 
     public static void RPC_BotToClient(ZRpc rpc, ZPackage pkg)
     {
+        // server sending to clients
         var messageType = pkg.ReadString();
         switch (messageType)
         {
@@ -266,6 +291,10 @@ public static class DiscordCommands
                 string message = pkg.ReadString();
                 Player.m_localPlayer.Message(MessageHud.MessageType.Center, message);
                 break;
+            case "bed":
+                var bedPoint = Game.instance.GetPlayerProfile().GetCustomSpawnPoint();
+                Player.m_localPlayer.TeleportTo(bedPoint, Quaternion.identity, true);
+                break;
         }
         
     }
@@ -285,8 +314,7 @@ public static class DiscordCommands
         public bool IsAllowed(string discordUserName)
         {
             if (!m_adminOnly) return true;
-            var parts = DiscordBotPlugin.m_discordAdmins.Value.Split(',').ToList();
-            return parts.Contains(discordUserName);
+            return new DiscordBotPlugin.StringListConfig(DiscordBotPlugin.m_discordAdmins.Value).list.Contains(discordUserName);
         }
         public void Run(string[] args) => m_action.Invoke(args);
     }
