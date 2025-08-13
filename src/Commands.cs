@@ -427,8 +427,6 @@ public static class DiscordCommands
                         Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), "Failed to find " + playerName);
                     }
                 }
-
-                
             }, pkg =>
             {
                 var statusName = pkg.ReadString();
@@ -438,6 +436,102 @@ public static class DiscordCommands
                 if (duration > 0f) status.m_ttl = duration;
             },
             adminOnly: true, emoji: "pizza");
+
+        var die = new DiscordCommand("die", "Kills player, <string:PlayerName>", args =>
+            {
+                if (args.Length < 2) return;
+                var playerName = args[1].Trim();
+                if (Player.m_localPlayer && Player.m_localPlayer.GetPlayerName() == playerName)
+                {
+                    Player.m_localPlayer.Damage(new HitData()
+                    {
+                        m_damage = {m_damage =  99999f}, m_hitType = HitData.HitType.Self
+                    });
+                }
+                else if (ZNet.instance.GetPeerByPlayerName(playerName) is { } peer)
+                {
+                    var pkg = new ZPackage();
+                    pkg.Write("die");
+                    peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
+                }
+                else
+                {
+                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), "Failed to find player: " + playerName);
+                }
+            }, _ =>
+            {
+                Player.m_localPlayer.Damage(new HitData()
+                {
+                    m_damage = {m_damage =  99999f}, m_hitType = HitData.HitType.Self
+                });
+            },
+            adminOnly: true, emoji: "tiger");
+        var listSkills = new DiscordCommand("listskills", "List of available skills", args =>
+        {
+            StringBuilder stringBuilder = new StringBuilder();
+            foreach (var skill in Enum.GetValues(typeof(Skills.SkillType))) stringBuilder.Append(skill);
+            Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, "Available skill types:", stringBuilder.ToString(), ZNet.instance.GetWorldName());
+        }, emoji: "pray");
+        var raiseSkill = new DiscordCommand("raiseskill",
+            "Raises skill level, `<string:PlayerName>` `<string:SkillType>` `<float:Amount>`",
+            args =>
+            {
+                if (args.Length < 3) return;
+                var playerName = args[1].Trim();
+                var skillType = args[2].Trim();
+                var amount = float.TryParse(args[3].Trim(), out float skillAmount) ? skillAmount : 1f;
+                if (!Enum.TryParse(skillType, out Skills.SkillType type))
+                {
+                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), "Failed to find skill type: " + skillType);
+                }
+                else
+                {
+                    if (Player.m_localPlayer && Player.m_localPlayer.GetPlayerName() == playerName)
+                    {
+                        Player.m_localPlayer.RaiseSkill(type, amount);
+                    }
+                    else if (ZNet.instance.GetPeerByPlayerName(playerName) is { } peer)
+                    {
+                        var pkg = new ZPackage();
+                        pkg.Write("raiseskill");
+                        pkg.Write(skillType);
+                        pkg.Write((double)amount);
+                    }
+                    else
+                    {
+                        Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), "Failed to find player: " + playerName);
+                    }
+                }
+            }, pkg =>
+            {
+                var skillType = pkg.ReadString();
+                var amount = (float)pkg.ReadDouble();
+                if (!Enum.TryParse(skillType, out Skills.SkillType type)) return;
+                Player.m_localPlayer.RaiseSkill(type, amount);
+            }, adminOnly: true, emoji: "muscle");
+
+        var pos = new DiscordCommand("pos", "Player position, `<string:PlayerName>`", args =>
+        {
+            if (args.Length < 2) return;
+            var playerName = args[1].Trim();
+            Vector3 pos;
+            if (Player.m_localPlayer && Player.m_localPlayer.GetPlayerName() == playerName)
+            {
+                pos = Player.m_localPlayer.transform.position;
+            }
+            else if (ZNet.instance.GetPeerByPlayerName(playerName) is { } peer)
+            {
+                pos = peer.m_refPos;
+            }
+            else
+            {
+                Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), "Failed to find player: " + playerName);
+                return;
+            }
+            
+            Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), $"{playerName} position: {pos.x},{pos.y},{pos.z}");
+            
+        }, adminOnly: true, emoji: "rose");
     }
     
     public static bool Spawn(string prefabName, int level, Vector3 pos)
