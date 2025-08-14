@@ -10,21 +10,12 @@ public static class OnNewChat
     {
         private static void Postfix(Talker.Type type, UserInfo sender, string text)
         {
-            if (DiscordBotPlugin.m_chatEnabled.Value is DiscordBotPlugin.Toggle.Off) return;
+            if (DiscordBotPlugin.m_chatEnabled.Value is DiscordBotPlugin.Toggle.Off || !Discord.m_worldIsValid) return;
             // make sure only triggered by local user, not any incoming messages from other players
             if (PlatformManager.DistributionPlatform.LocalUser.PlatformUserID != sender.UserId) return;
             if (type is not Talker.Type.Shout) return;
-            if (text == Localization.instance.Localize("$text_player_arrived"))
-            {
-                if (DiscordBotPlugin.m_newPlayerNotice.Value is DiscordBotPlugin.Toggle.On)
-                {
-                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Notifications, ZNet.instance.GetWorldName(), $"{sender.GetDisplayName()} $label_has_joined");
-                }
-            }
-            else
-            {
-                Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Chat, sender.GetDisplayName(), text);
-            }   
+            if (text == Localization.instance.Localize("$text_player_arrived")) return;
+            Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Chat, sender.GetDisplayName(), text);
         }
     }
 }

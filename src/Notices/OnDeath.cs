@@ -9,7 +9,7 @@ public static class OnDeath
     {
         private static void Prefix(Player __instance)
         {
-            if (DiscordBotPlugin.m_deathNotice.Value is DiscordBotPlugin.Toggle.Off) return;
+            if (DiscordBotPlugin.m_deathNotice.Value is DiscordBotPlugin.Toggle.Off || !Discord.m_worldIsValid) return;
             
             if (__instance != Player.m_localPlayer) return;
             if (__instance.m_nview.GetZDO() == null) return;

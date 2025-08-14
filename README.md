@@ -83,7 +83,11 @@ Lock Configuration = On
 ## Set interval between check for messages in discord, in seconds [Synced with Server]
 Poll Interval = 5
 
-Poll = On
+## If on, errors will log to console as warnings [Synced with Server]
+Log Errors = Off
+
+## plugin checks against this name to make sure client is connecting to the correct server [Synced with Server]
+World Name = MyWorld
 
 [2 - Notifications]
 

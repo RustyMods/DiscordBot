@@ -17,9 +17,20 @@ public class Discord : MonoBehaviour
     [HarmonyPatch(typeof(ZNet), nameof(ZNet.Awake))]
     private static class ZNet_Awake_Patch
     {
-        private static void Postfix() => m_instance.gameObject.AddComponent<Discord>();
+        private static void Postfix(ZNet __instance)
+        {
+            if (__instance.GetWorldName() != m_serverName.Value)
+            {
+                DiscordBotLogger.LogWarning("CONFIG WORLD NAME DOES NOT MATCH CURRENT WORLD NAME");
+                m_worldIsValid = false;
+            }
+            else
+            {
+                m_instance.gameObject.AddComponent<Discord>();
+            }
+        }
     }
-    
+
     public static Discord instance = null!;
     
     public event Action<Message>? OnMessageReceived;
@@ -32,6 +43,8 @@ public class Discord : MonoBehaviour
     private bool m_isPollingCommands;
 
     private DateTime m_timeLoaded;
+
+    public static bool m_worldIsValid = true;
 
     public void Awake()
     {
@@ -46,7 +59,7 @@ public class Discord : MonoBehaviour
 
     private void Start()
     {
-        if (!ZNet.instance || !ZNet.m_isServer) return;
+        if (!ZNet.instance || !ZNet.m_isServer || !m_worldIsValid) return;
         if (string.IsNullOrEmpty(Token.BOT_TOKEN))
         {
             DiscordBotLogger.LogError("Bot token not set, contact Rusty on OdinPlus discord");
@@ -54,7 +67,7 @@ public class Discord : MonoBehaviour
         }
         if (!string.IsNullOrEmpty(m_chatChannelID.Value) && m_chatEnabled.Value is Toggle.On) StartPollingChatter();
         if (!string.IsNullOrEmpty(m_commandChannelID.Value)) StartPollingCommands();
-        
+
         SendMessage(Webhook.Commands, ZNet.instance.GetWorldName(), $"{EmojiHelper.Emoji("question")} type `!help` to find list of available commands");
     }
 
@@ -101,7 +114,7 @@ public class Discord : MonoBehaviour
 
     public void BroadcastMessage(string username, string message)
     {
-        if (!ZNet.instance || !ZNet.m_isServer) return;
+        if (!ZNet.instance || !ZNet.m_isServer || !m_worldIsValid) return;
         foreach (var peer in ZNet.instance.GetPeers()) peer.m_rpc.Invoke(nameof(RPC_ClientBotMessage), username, message);
     }
 
@@ -117,6 +130,7 @@ public class Discord : MonoBehaviour
     
     public void SendMessage(Webhook webhook, string username, string message)
     {
+        if (!m_worldIsValid) return;
         var webhookData = new DiscordWebhookData
         {
             content = Localization.instance.Localize(message),
@@ -129,6 +143,7 @@ public class Discord : MonoBehaviour
 
     public void SendEmbedMessage(Webhook webhook, string title, string content, string username, string thumbnail = "")
     {
+        if (!m_worldIsValid) return;
         var embed = new Embed
         {
             title = Localization.instance.Localize(title),
@@ -151,6 +166,7 @@ public class Discord : MonoBehaviour
     
     public void SendTableEmbed(Webhook webhook, string title, Dictionary<string, string> tableData, string username, string thumbnail = "")
     {
+        if (!m_worldIsValid) return;
         if (tableData.Count <= 0)
         {
             OnError?.Invoke("Table data is empty");

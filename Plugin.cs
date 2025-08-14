@@ -39,7 +39,8 @@ namespace DiscordBot
         public static ConfigEntry<Toggle> m_serverStopNotice = null!;
         public static ConfigEntry<Toggle> m_serverSaveNotice = null!;
         public static ConfigEntry<Toggle> m_deathNotice = null!;
-        public static ConfigEntry<Toggle> m_newPlayerNotice = null!;
+        public static ConfigEntry<Toggle> m_loginNotice = null!;
+        public static ConfigEntry<Toggle> m_logoutNotice = null!;
 
         public static ConfigEntry<string> m_chatWebhookURL = null!;
         public static ConfigEntry<string> m_chatChannelID = null!;
@@ -51,6 +52,8 @@ namespace DiscordBot
 
         public static ConfigEntry<string> m_discordAdmins = null!;
         public static ConfigEntry<Toggle> m_logErrors = null!;
+
+        public static ConfigEntry<string> m_serverName = null!;
 
         public static string GetWebhookURL(Webhook type) => type switch
         {
@@ -66,6 +69,8 @@ namespace DiscordBot
             Channel.Commands => m_commandChannelID.Value,
             _ => m_chatChannelID.Value
         };
+        
+        // TODO : Figure out to make sure connecting peer is connecting to the right server
 
         public void Awake()
         {
@@ -75,14 +80,17 @@ namespace DiscordBot
             _ = ConfigSync.AddLockingConfigEntry(_serverConfigLocked);
             m_pollInterval = config("1 - General", "Poll Interval", 5, new ConfigDescription("Set interval between check for messages in discord, in seconds", new AcceptableValueRange<int>(5, 300)));
             m_logErrors = config("1 - General", "Log Errors", Toggle.Off, "If on, errors will log to console as warnings");
+            m_serverName = config("1 - General", "World Name", "", "plugin checks against this name to make sure client is connecting to the correct server");
             
             m_notificationWebhookURL = config("2 - Notifications", "Webhook URL", "", "Set webhook to receive notifications, like server start, stop, save etc...");
             m_serverStartNotice = config("2 - Notifications", "Startup", Toggle.On, "If on, bot will send message when server is starting");
             m_serverStopNotice = config("2 - Notifications", "Shutdown", Toggle.On, "If on, bot will send message when server is shutting down");
             m_serverSaveNotice = config("2 - Notifications", "Saving", Toggle.On, "If on, bot will send message when server is saving");
             m_deathNotice = config("2 - Notifications", "On Death", Toggle.On, "If on, bot will send message when player dies");
-            m_newPlayerNotice = config("2 - Notifications", "New Connection", Toggle.On,
-                "If on, bot will send message when new player connects");
+            m_loginNotice = config("2 - Notifications", "Login", Toggle.On,
+                "If on, bot will send message when player logs in");
+            m_logoutNotice = config("2 - Notifications", "Logout", Toggle.On,
+                "If on, bot will send message when player logs out");
 
             m_chatWebhookURL = config("3 - Chat", "Webhook URL", "", "Set discord webhook to display chat messages");
             m_chatChannelID = config("3 - Chat", "Channel ID", "", "Set channel ID to monitor for messages");

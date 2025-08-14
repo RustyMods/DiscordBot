@@ -6,5 +6,6 @@
   "label_players_connected" : "players connected",
   "title_new_connection" : "New Connection!",
   "msg_server_start" : "Server is booting up!",
-  "label_has_joined" : "has joined!"
+  "label_has_joined" : "has joined!",
+  "label_has_left"  : "has left!"
 }
