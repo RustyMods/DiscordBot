@@ -53,8 +53,6 @@ namespace DiscordBot
         public static ConfigEntry<string> m_discordAdmins = null!;
         public static ConfigEntry<Toggle> m_logErrors = null!;
 
-        public static ConfigEntry<string> m_serverName = null!;
-
         public static string GetWebhookURL(Webhook type) => type switch
         {
             Webhook.Chat => m_chatWebhookURL.Value,
@@ -80,7 +78,6 @@ namespace DiscordBot
             _ = ConfigSync.AddLockingConfigEntry(_serverConfigLocked);
             m_pollInterval = config("1 - General", "Poll Interval", 5, new ConfigDescription("Set interval between check for messages in discord, in seconds", new AcceptableValueRange<int>(5, 300)));
             m_logErrors = config("1 - General", "Log Errors", Toggle.Off, "If on, errors will log to console as warnings");
-            m_serverName = config("1 - General", "World Name", "", "plugin checks against this name to make sure client is connecting to the correct server");
             
             m_notificationWebhookURL = config("2 - Notifications", "Webhook URL", "", "Set webhook to receive notifications, like server start, stop, save etc...");
             m_serverStartNotice = config("2 - Notifications", "Startup", Toggle.On, "If on, bot will send message when server is starting");
@@ -211,7 +208,7 @@ namespace DiscordBot
             return configEntry;
         }
 
-        private ConfigEntry<T> config<T>(string group, string name, T value, string description,
+        public ConfigEntry<T> config<T>(string group, string name, T value, string description,
             bool synchronizedSetting = true)
         {
             return config(group, name, value, new ConfigDescription(description), synchronizedSetting);

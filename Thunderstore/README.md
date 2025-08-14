@@ -34,12 +34,10 @@ If you haven't already installed BepInEx:
 
 After first run, configuration files will be generated in `BepInEx/config/`. Edit the Discord Bot config file to set up your:
 
-- Bot Token
 - Channel IDs
 - Webhook URLs
 - Polling intervals
-- World Name
-
+- 
 ## Discord Setup
 
 ### Creating Discord Webhooks
@@ -86,9 +84,6 @@ Poll Interval = 5
 
 ## If on, errors will log to console as warnings [Synced with Server]
 Log Errors = Off
-
-## plugin checks against this name to make sure client is connecting to the correct server [Synced with Server]
-World Name = MyWorld
 
 [2 - Notifications]
 

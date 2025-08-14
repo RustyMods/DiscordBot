@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Text;
-using BepInEx;
 using HarmonyLib;
 using Newtonsoft.Json;
 using UnityEngine;
@@ -19,15 +18,7 @@ public class Discord : MonoBehaviour
     {
         private static void Postfix(ZNet __instance)
         {
-            if (__instance.GetWorldName() != m_serverName.Value)
-            {
-                DiscordBotLogger.LogWarning("CONFIG WORLD NAME DOES NOT MATCH CURRENT WORLD NAME");
-                m_worldIsValid = false;
-            }
-            else
-            {
-                m_instance.gameObject.AddComponent<Discord>();
-            }
+            m_instance.gameObject.AddComponent<Discord>();
         }
     }
 
@@ -35,16 +26,16 @@ public class Discord : MonoBehaviour
     
     public event Action<Message>? OnMessageReceived;
     public event Action<Message>? OnCommandReceived;
+    public event Action<Sprite>? OnImageDownloaded;
     public event Action<string>? OnError;
     
     private string m_lastMessageID = "";
     private string m_lastCommandID = "";
     private bool m_isPollingChatter;
     private bool m_isPollingCommands;
+    private bool m_isDownloadingImage;
 
     private DateTime m_timeLoaded;
-
-    public static bool m_worldIsValid = true;
 
     public void Awake()
     {
@@ -54,12 +45,13 @@ public class Discord : MonoBehaviour
         // Only server manages polling
         OnMessageReceived += HandleChatMessage;
         OnCommandReceived += HandleCommands;
+        OnImageDownloaded += HandleImage;
         OnError += HandleError;
     }
 
     private void Start()
     {
-        if (!ZNet.instance || !ZNet.m_isServer || !m_worldIsValid) return;
+        if (!ZNet.instance || !ZNet.m_isServer) return;
         if (string.IsNullOrEmpty(Token.BOT_TOKEN))
         {
             DiscordBotLogger.LogError("Bot token not set, contact Rusty on OdinPlus discord");
@@ -84,12 +76,13 @@ public class Discord : MonoBehaviour
 
     private void HandleChatMessage(Message message)
     {
-        BroadcastMessage(message.author.GetDisplayName(), message.content);
-        if (Player.m_localPlayer) DisplayChatMessage(message.author.GetDisplayName(), message.content);
+        BroadcastMessage(message.author?.GetDisplayName() ?? "", message?.content ?? "");
+        if (Player.m_localPlayer) DisplayChatMessage(message?.author?.GetDisplayName() ?? "", message?.content ?? "");
     }
 
     private void HandleCommands(Message message)
     {
+        if (message.content == null) return;
         string[] args = message.content.Split(' ');
         string command = args[0].Trim();
 
@@ -97,12 +90,50 @@ public class Discord : MonoBehaviour
         {
             SendMessage(Webhook.Commands, ZNet.instance.GetWorldName(), "Failed to find command: " + command);
         }
-        else if (!discordCommand.IsAllowed(message.author.GetFullUsername()))
+        else if (!discordCommand.IsAllowed(message.author?.GetFullUsername() ?? ""))
         {
-            SendMessage(Webhook.Commands, ZNet.instance.GetWorldName(), message.author.GetFullUsername() + " not allowed to use command: " + command);
+            SendMessage(Webhook.Commands, ZNet.instance.GetWorldName(), message.author?.GetFullUsername() + " not allowed to use command: " + command);
         }
         else discordCommand.Run(args);
     }
+
+    private static void HandleImage(Sprite sprite)
+    {
+        if (ImageHud.instance is null) return;
+        ImageHud.instance.Show(sprite);
+    }
+    
+    #region Image Download
+
+    public void GetImage(string imageUrl)
+    {
+        if (m_isDownloadingImage) return;
+        m_isDownloadingImage = true;
+        StartCoroutine(DownloadImage(imageUrl));
+    }
+    public IEnumerator DownloadImage(string imageUrl)
+    {
+        using UnityWebRequest request = UnityWebRequestTexture.GetTexture(imageUrl);
+        yield return request.SendWebRequest();
+
+        if (request.result != UnityWebRequest.Result.Success)
+        {
+            string message = $"Failed to download image from {imageUrl}: {request.error}";
+            OnError?.Invoke(message);
+        }
+        else
+        {
+            Texture2D texture = DownloadHandlerTexture.GetContent(request);
+            Sprite sprite = Sprite.Create(
+                texture,
+                new Rect(0, 0, texture.width, texture.height),
+                new Vector2(0.5f, 0.5f) // Pivot at center
+            );
+            OnImageDownloaded?.Invoke(sprite);
+        }
+        m_isDownloadingImage = false;
+    }
+    #endregion
     
     #region RPC Handlers
 
@@ -114,7 +145,7 @@ public class Discord : MonoBehaviour
 
     public void BroadcastMessage(string username, string message)
     {
-        if (!ZNet.instance || !ZNet.m_isServer || !m_worldIsValid) return;
+        if (!ZNet.instance || !ZNet.m_isServer) return;
         foreach (var peer in ZNet.instance.GetPeers()) peer.m_rpc.Invoke(nameof(RPC_ClientBotMessage), username, message);
     }
 
@@ -127,46 +158,32 @@ public class Discord : MonoBehaviour
     #endregion
     
     #region Sending Messages to Discord
+
+    
+    // does not work
+    public void SendComponentMessage(Webhook webhook, string username, params EmbedComponent[] components)
+    {
+        var layoutData = new DiscordWebhookComponents(username, components);
+        StartCoroutine(SendLayoutMessage(layoutData, GetWebhookURL(webhook)));
+    }
     
     public void SendMessage(Webhook webhook, string username, string message)
     {
-        if (!m_worldIsValid) return;
-        var webhookData = new DiscordWebhookData
-        {
-            content = Localization.instance.Localize(message),
-            username = username,
-            avatar_url = Links.DefaultAvatar
-        };
-        
+        var webhookData = new DiscordWebhookData(username, message);
         StartCoroutine(SendWebhookMessage(webhookData, GetWebhookURL(webhook)));
     }
 
     public void SendEmbedMessage(Webhook webhook, string title, string content, string username, string thumbnail = "")
     {
-        if (!m_worldIsValid) return;
-        var embed = new Embed
-        {
-            title = Localization.instance.Localize(title),
-            description = Localization.instance.Localize(content),
-            timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-        };
-        if (!string.IsNullOrEmpty(thumbnail))
-        {
-            embed.thumbnail = new EmbedImage() { url = thumbnail, width = 256, height = 256 };
-        }
-        var webhookData = new DiscordWebhookData
-        {
-            username = username.IsNullOrWhiteSpace() ? ZNet.instance.GetWorldName() : username,
-            avatar_url = Links.DefaultAvatar,
-            embeds = new Embed[] {embed}
-        };
-        
+        var embed = new Embed(title, content);
+        embed.AddThumbnail(thumbnail);
+        var webhookData = new DiscordWebhookData(username, embed);
+
         StartCoroutine(SendWebhookMessage(webhookData, GetWebhookURL(webhook)));
     }
     
     public void SendTableEmbed(Webhook webhook, string title, Dictionary<string, string> tableData, string username, string thumbnail = "")
     {
-        if (!m_worldIsValid) return;
         if (tableData.Count <= 0)
         {
             OnError?.Invoke("Table data is empty");
@@ -175,37 +192,13 @@ public class Discord : MonoBehaviour
 
         foreach (var kvp in tableData)
         {
-            fields.Add(new EmbedField
-            {
-                name = kvp.Key,
-                value = kvp.Value,
-                inline = true
-            });
+            fields.Add(new EmbedField(kvp.Key, kvp.Value));
         }
 
-        var embed = new Embed
-        {
-            title = title,
-            fields = fields.ToArray(),
-            timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-        };
-
-        if (!string.IsNullOrEmpty(thumbnail))
-        {
-            embed.thumbnail = new EmbedImage
-            {
-                url = thumbnail,
-                width = 256,
-                height = 256
-            };
-        }
-
-        var webhookData = new DiscordWebhookData
-        {
-            username = string.IsNullOrWhiteSpace(username) ? ZNet.instance.GetWorldName() : username,
-            avatar_url = Links.DefaultAvatar,
-            embeds = new Embed[] { embed }
-        };
+        var embed = new Embed(title, fields);
+        embed.AddThumbnail(thumbnail);
+        
+        var webhookData = new DiscordWebhookData(username, embed);
 
         StartCoroutine(SendWebhookMessage(webhookData, GetWebhookURL(webhook)));
     }
@@ -233,6 +226,32 @@ public class Discord : MonoBehaviour
         {
             string error = $"Failed to send message: {request.error} - {request.downloadHandler.text}";
             OnError?.Invoke(error);
+        }
+    }
+    
+    private IEnumerator SendLayoutMessage(DiscordWebhookComponents data, string webhookURL)
+    {
+        if (string.IsNullOrEmpty(webhookURL))
+        {
+            OnError?.Invoke("Webhook URL is not set!");
+            yield break;
+        }
+        
+        string jsonData = JsonConvert.SerializeObject(data);
+        byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonData);
+
+        using UnityWebRequest request = new UnityWebRequest(webhookURL + "?with_components=true", "POST");
+        request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+        request.downloadHandler = new DownloadHandlerBuffer();
+        request.SetRequestHeader("Content-Type", "application/json");
+
+        yield return request.SendWebRequest();
+
+        if (request.result != UnityWebRequest.Result.Success)
+        {
+            string error = $"Failed to send message: {request.error} - {request.downloadHandler.text}";
+            OnError?.Invoke(error);
+            OnError?.Invoke(jsonData);
         }
     }
     
@@ -298,7 +317,7 @@ public class Discord : MonoBehaviour
                 var messages = JsonConvert.DeserializeObject<Message[]>(request.downloadHandler.text);
                 if (messages is not { Length: > 0 }) yield break;
                 var message = messages[0];
-                if (message.author.bot) yield break;
+                if (message.author?.bot ?? true) yield break;
 
                 var timeStamp = DateTime.Parse(message.timestamp).ToUniversalTime(); // local time, so convert
                 if (m_timeLoaded > timeStamp)
@@ -306,7 +325,7 @@ public class Discord : MonoBehaviour
                     yield break;
                 }
 
-                if (message.id == m_lastCommandID) yield break;
+                if (message.id == null || message.id == m_lastCommandID) yield break;
                 m_lastCommandID = message.id;
 
                 OnCommandReceived?.Invoke(message);
@@ -347,7 +366,8 @@ public class Discord : MonoBehaviour
                     for (int i = messages.Length - 1; i >= 0; i--)
                     {
                         var message = messages[i];
-                        if (message.author.bot) continue;
+                        if (message.author?.bot ?? true) continue;
+                        if (message.id == null) continue;
                         if (string.IsNullOrEmpty(m_lastMessageID) || 
                             ulong.Parse(message.id) > ulong.Parse(m_lastMessageID))
                         {
@@ -391,92 +411,328 @@ public class Discord : MonoBehaviour
     [Serializable][Description("Discord webhook json object")]
     public class DiscordWebhookData
     {
-        public string content = null!;
-        public string username = null!;
-        public string avatar_url = null!;
-        public Embed[] embeds = null!;
+        public string? content; // up to 2000 characters
+        public bool tts; // text-to-speech
+        public Embed[]? embeds;
+        public string? username;
+        public string? avatar_url = Links.DefaultAvatar;
+
+        public DiscordWebhookData(string username, string content)
+        {
+            this.username = username;
+            this.content = Localization.instance.Localize(content);
+        }
+
+        public DiscordWebhookData(string username, params Embed[] embeds)
+        {
+            this.username = username;
+            this.embeds = embeds;
+        }
+    }
+    
+    #region Component
+
+    [Serializable]
+    public class DiscordWebhookComponents
+    {
+        public string? username;
+        public string? avatar_url;
+        public EmbedComponent[]? components;
+
+        public DiscordWebhookComponents(string username, params EmbedComponent[] components)
+        {
+            this.username = username;
+            this.components = components;
+        }
+    }
+
+    [Serializable]
+    public class EmbedComponent
+    {
+        public int type;
+        public int id;
+    }
+    [Serializable]
+    public class ActionRow : EmbedComponent
+    {
+        // up to 5 contextually grouped button components
+        // a single text input component
+        // a single select component
+        public EmbedComponent[]? components;
+
+        public ActionRow()
+        {
+            type = 1;
+        }
+    }
+    [Serializable]
+    public class Button : EmbedComponent
+    {
+        public int style;
+        public string? label;
+        public string? custom_id;
+        public string? url;
+        public bool disabled;
+        
+        public Button(ButtonStyle style, string label)
+        {
+            this.label = label;
+            this.style = (int)style;
+            type = 2;
+        }
+
+        public enum ButtonStyle
+        {
+            Primary = 1, Secondary = 2, Success = 3, Danger = 4, Link = 5, Premium = 6
+        }
+    }
+    [Serializable]
+    public class StringSelect : EmbedComponent
+    {
+        public string? custom_id;
+        public EmbedOption[]? options;
+        public string? placeholder;
+        public int min_values;
+        public int max_values;
+        public bool disabled;
+
+        public StringSelect()
+        {
+            type = 3;
+        }
+    }
+    [Serializable]
+    public class TextInput : EmbedComponent
+    {
+        public string? custom_id;
+        public int style;
+        public string? label;
+        public int min_length;
+        public int max_length;
+        public bool required;
+        public string? value;
+        public string? placeholder;
+
+        public TextInput(TextInputStyle style)
+        {
+            this.style = (int)style;
+            type = 4;
+        }
+
+        public enum TextInputStyle
+        {
+            Short = 1, Paragraph = 2
+        }
+    }
+    [Serializable]
+    public class UserSelect : EmbedComponent
+    {
+        public string? custom_id;
+        public string? placeholder;
+        public object[]? default_values;
+        public int min_values;
+        public int max_values;
+        public bool disabled;
+
+        public UserSelect()
+        {
+            type = 5;
+        }
+    }
+
+    [Serializable]
+    public class Section : EmbedComponent
+    {
+        public EmbedComponent[]? components; // 1 - 3 text components
+        public EmbedComponent? accessory; // only thumbnail or button
+        public Section(params EmbedComponent[] components)
+        {
+            this.components = components;
+            type = 9;
+        }
+
+        public Section()
+        {
+            type = 9;
+        }
+    }
+
+    [Serializable]
+    public class TextDisplay : EmbedComponent
+    {
+        public string? content;
+
+        public TextDisplay(string content)
+        {
+            this.content = content;
+            type = 10;
+        }
+    }
+    
+    #endregion
+    
+    [Serializable]
+    public class EmbedOption
+    {
+        public string? label;
+        public string? value;
+        public string? description;
+        public Dictionary<string, string>? emoji;
     }
 
     [Serializable][Description("Discord embed json object")]
     public class Embed
     {
-        public string title = null!;
-        public string description = null!;
-        public int color;
-        public string timestamp = null!;
-        public EmbedAuthor author = null!;
-        public EmbedField[] fields = null!;
-        public Footer footer = null!;
-        public EmbedImage image = null!;
-        public EmbedImage thumbnail = null!;
-    }
+        public string? title;
+        public string? description;
+        public string? url;
+        public string? timestamp;
+        public int? color;
+        public Footer? footer;
+        public EmbedImage? image;
+        public EmbedImage? thumbnail;
+        public EmbedVideo? video;
+        public EmbedProvider? provider;
+        public EmbedAuthor? author;
+        public EmbedField[]? fields; // max 25
 
+        public Embed()
+        {
+            timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+        }
+
+        public Embed(string title, string description)
+        {
+            this.title = Localization.instance.Localize(title);
+            this.description = Localization.instance.Localize(description);
+            timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+        }
+
+        public Embed(string title, params EmbedField[] fields)
+        {
+            this.title = title;
+            this.fields = fields;
+            timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+        }
+        
+        public Embed(string title, List<EmbedField> fields) : this (title, fields.ToArray()){}
+
+        public void AddImage(string imageUrl)
+        {
+            if (string.IsNullOrEmpty(imageUrl)) return;
+            image = new EmbedImage(imageUrl);
+        }
+
+        public void AddThumbnail(string thumbnailUrl)
+        {
+            if (string.IsNullOrEmpty(thumbnailUrl)) return;
+            thumbnail = new EmbedImage(thumbnailUrl);
+        }
+    }
+    
     [Serializable][Description("Discord image json object")]
     public class EmbedImage
     {
-        public string url = null!;
+        public string? url;
         public int width;
         public int height;
+
+        public EmbedImage(string url, int width = 256, int height = 256)
+        {
+            this.url = url;
+            this.width = width;
+            this.height = height;
+        }
     }
 
+    [Serializable]
+    public class EmbedVideo
+    {
+        public string? url;
+        public int height;
+        public int width;
+    }
+
+    [Serializable]
+    public class EmbedProvider
+    {
+        public string? name;
+        public string? url;
+    }
+    
     [Serializable][Description("Discord author json object")]
     public class EmbedAuthor
     {
-        public string name = null!;
-        public string icon_url = null!;
+        public string? name;
+        public string? icon_url;
     }
 
     [Serializable][Description("Discord embed json object")]
     public class EmbedField
     {
-        public string name = null!;
-        public string value = null!;
+        public string? name;
+        public string? value;
         public bool inline;
+
+        public EmbedField(string name, string value, bool inline = true)
+        {
+            this.name = name;
+            this.value = value;
+            this.inline = inline;
+        }
     }
 
     [Serializable][Description("Discord footer json object")]
     public class Footer
     {
-        public string text = null!;
-        public string icon_url = null!;
+        public string? text;
+        public string? icon_url;
+
+        public Footer(string text)
+        {
+            this.text = Localization.instance.Localize(text);
+        }
+
+        public void AddIcon(string url)
+        {
+            if (string.IsNullOrEmpty(url)) return;
+            icon_url = url;
+        }
     }
 
     [Serializable][Description("Discord message json object")]
     public class Message
     {
-        public string id = null!;
-        public string channel_id = null!;
-        public User author = null!;
-        public string content = null!;
-        public string timestamp = null!;
-        public string edited_timestamp = null!;
+        public string? id;
+        public string? channel_id;
+        public User? author;
+        public string? content;
+        public string? timestamp;
+        public string? edited_timestamp;
         public bool tts;
         public bool mention_everyone;
-        public User[] mentions = null!;
-        public User[] mention_roles = null!;
+        public User[]? mentions;
+        public User[]? mention_roles;
         
         public int type;
-        public Embed[] embeds = null!;
+        public Embed[]? embeds;
     }
 
     [Serializable][Description("Discord user json object")]
     public class User
     {
-        public string id = null!;
-        public string username = null!;
-        public string global_name = null!;
-        public string discriminator = null!;
+        public string? id;
+        public string? username;
+        public string? global_name;
+        public string? discriminator;
         public bool bot;
-        public string avatar = null!;
-        public string GetDisplayName() => !string.IsNullOrEmpty(global_name) ? global_name : username;
-    
+        public string? avatar;
+        public string GetDisplayName() => (!string.IsNullOrEmpty(global_name) ? global_name : username) ?? string.Empty;
         public string GetFullUsername()
         {
-            if (!string.IsNullOrEmpty(discriminator) && discriminator != "0")
-            {
-                return $"{username}#{discriminator}";
-            }
-            return username;
+            return !string.IsNullOrEmpty(discriminator) && discriminator != "0"
+                ? $"{username}#{discriminator}"
+                : username ?? string.Empty;
         }
     }
     #endregion

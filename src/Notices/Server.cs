@@ -1,5 +1,4 @@
 ﻿using HarmonyLib;
-using UnityEngine;
 using static DiscordBot.DiscordBotPlugin;
 
 namespace DiscordBot.Notices;
@@ -11,10 +10,10 @@ public static class Server
     {
         private static void Postfix(ZNet __instance)
         {
-            if (m_serverSaveNotice.Value is Toggle.Off || !Discord.m_worldIsValid) return;
+            if (m_serverSaveNotice.Value is Toggle.Off) return;
             if (!__instance.IsServer()) return;
             var WorldName = __instance.GetWorldName();
-            Discord.instance.SendMessage(Webhook.Notifications, WorldName, $"{EmojiHelper.Emoji("save")}  $msg_server_saving");
+            Discord.instance.SendMessage(Webhook.Notifications, WorldName, "$msg_server_saving");
         }
     }
 
@@ -23,10 +22,10 @@ public static class Server
     {
         private static void Prefix(ZNet __instance)
         {
-            if (m_serverStopNotice.Value is Toggle.Off || !Discord.m_worldIsValid) return;
+            if (m_serverStopNotice.Value is Toggle.Off) return;
             if (!__instance.IsServer()) return;
             var WorldName = ZNet.instance.GetWorldName();
-            Discord.instance.SendMessage(Webhook.Notifications, WorldName, $"{EmojiHelper.Emoji("stop")}  $msg_server_stop");
+            Discord.instance.SendMessage(Webhook.Notifications, WorldName, "$msg_server_stop");
         }
     }
 
@@ -35,7 +34,7 @@ public static class Server
     {
         private static void Postfix(ZNet __instance)
         {
-            if (!__instance.IsServer() || !Discord.m_worldIsValid) return;
+            if (!__instance.IsServer()) return;
             if (m_serverStartNotice.Value is Toggle.Off) return;
             Discord.instance.SendMessage(Webhook.Notifications, __instance.GetWorldName(), "$msg_server_start");
         }
@@ -57,7 +56,7 @@ public static class Server
     {
         private static void Prefix(ZNet __instance, ZRpc rpc)
         {
-            if (!__instance.IsServer() || !Discord.m_worldIsValid) return;
+            if (!__instance.IsServer()) return;
             if (__instance.GetPeer(rpc) is not { } peer) return;
             Discord.instance.SendMessage(Webhook.Notifications, ZNet.instance.GetWorldName(), $"{peer.m_playerName} $label_has_left");
         }

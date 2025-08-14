@@ -21,51 +21,79 @@ public static class DiscordCommands
         }
     }
     public static readonly Dictionary<string, DiscordCommand> m_commands = new();
-    private static readonly Dictionary<string, string> m_descriptions = new();
+    private static readonly List<CommandTooltip> m_tooltips = new();
 
     public static void Setup()
     {
         var help = new DiscordCommand("!help", "List of commands", _ =>
         {
             // max 25 embed elements in a single message
-            if (m_descriptions.Count > 25)
+            const int itemsPerEmbed = 25;
+            string worldName = ZNet.instance.GetWorldName();
+            List<CommandTooltip> adminCommands = new();
+            List<CommandTooltip> otherCommands = new();
+            foreach (var tooltip in m_tooltips)
             {
-                // Calculate how many embeds we need (25 items per embed)
-                const int itemsPerEmbed = 25;
-                int totalEmbeds = (int)Math.Ceiling((double)m_descriptions.Count / itemsPerEmbed);
-    
-                var descriptionsList = m_descriptions.ToList();
-                string worldName = ZNet.instance.GetWorldName();
-    
-                // Split into multiple embeds
-                for (int i = 0; i < totalEmbeds; i++)
+                if (tooltip.m_adminOnly) adminCommands.Add(tooltip);
+                else otherCommands.Add(tooltip);
+            }
+
+            if (adminCommands.Count > 25)
+            {
+                int totalEmbeds = (int)Math.Ceiling((double)adminCommands.Count / itemsPerEmbed);
+                for (int index = 0; index < totalEmbeds; ++index)
                 {
-                    var chunk = descriptionsList
-                        .Skip(i * itemsPerEmbed)
-                        .Take(itemsPerEmbed)
-                        .ToDictionary(kv => kv.Key, kv => kv.Value);
-        
-                    string title = totalEmbeds == 1 
-                        ? "List of available commands" 
-                        : $"List of available commands (Part {i + 1} of {totalEmbeds})";
-        
+                    var chunk = adminCommands.Skip(index * itemsPerEmbed).Take(itemsPerEmbed)
+                        .ToDictionary(command => command.m_command, command => command.m_description);
+
+                    string title = totalEmbeds == 1
+                        ? "List of admin commands"
+                        : $"List of admin commands (Part {index + 1} of {totalEmbeds}";
+
                     Discord.instance.SendTableEmbed(
-                        DiscordBotPlugin.Webhook.Commands, 
-                        title, 
-                        chunk, 
-                        worldName
-                    );
+                        DiscordBotPlugin.Webhook.Commands,
+                        title,
+                        chunk,
+                        worldName);
                 }
             }
             else
             {
                 Discord.instance.SendTableEmbed(
-                    DiscordBotPlugin.Webhook.Commands, 
-                    "List of available commands", 
-                    m_descriptions, 
-                    ZNet.instance.GetWorldName()
-                );
+                    DiscordBotPlugin.Webhook.Commands,
+                    "List of admin commands",
+                    adminCommands.ToDictionary(command => command.m_command, command => command.m_description),
+                    worldName);
             }
+            
+            if (otherCommands.Count > 25)
+            {
+                int totalEmbeds = (int)Math.Ceiling((double)otherCommands.Count / itemsPerEmbed);
+                for (int index = 0; index < totalEmbeds; ++index)
+                {
+                    var chunk = otherCommands.Skip(index * itemsPerEmbed).Take(itemsPerEmbed)
+                        .ToDictionary(command => command.m_command, command => command.m_description);
+
+                    string title = totalEmbeds == 1
+                        ? "List of commands"
+                        : $"List of commands (Part {index + 1} of {totalEmbeds}";
+
+                    Discord.instance.SendTableEmbed(
+                        DiscordBotPlugin.Webhook.Commands,
+                        title,
+                        chunk,
+                        worldName);
+                }
+            }
+            else
+            {
+                Discord.instance.SendTableEmbed(
+                    DiscordBotPlugin.Webhook.Commands,
+                    "List of commands",
+                    otherCommands.ToDictionary(command => command.m_command, command => command.m_description),
+                    worldName);
+            }
+
         }, emoji: "question");
         var listAdmins = new DiscordCommand("!listadmins", "List of discord admins registered to plugin", _ =>
         {
@@ -77,7 +105,7 @@ public static class DiscordCommands
             Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, "List of discord usernames who can use commands:", stringBuilder.ToString(), ZNet.instance.GetWorldName());
         }, emoji: "warning");
         var addDiscordAdmin = new DiscordCommand("!addadmin",
-            "Adds discord username to admin list, to enable using commands, `<string:Username>`",
+            "Adds discord username to admin list, to enable using commands, `username`",
             args =>
             {
                 if (args.Length < 2) return;
@@ -88,7 +116,7 @@ public static class DiscordCommands
                 listAdmins.Run(new []{"listadmins"});
             }, adminOnly: true, emoji: "key");
         var removeDiscordAdmin = new DiscordCommand("!removeadmin",
-            "Remove discord username from admin list, to disable using commands, `<string:Username>`",
+            "Remove discord username from admin list, to disable using commands, `username`",
             args =>
             {
                 var userName = args[1].Trim();
@@ -147,7 +175,7 @@ public static class DiscordCommands
             Discord.instance.SendTableEmbed(DiscordBotPlugin.Webhook.Commands, "List of active players", content, ZNet.instance.GetWorldName());
         }, adminOnly: true, emoji:"dragon");
 
-        var kick = new DiscordCommand("!kick", "Kicks player from server, `<string:PlayerName>`", args =>
+        var kick = new DiscordCommand("!kick", "Kicks player from server, `playername`", args =>
         {
             if (args.Length < 2) return;
             var playerName = args[1].Trim();
@@ -162,7 +190,7 @@ public static class DiscordCommands
             }
         }, adminOnly:true, emoji:"x");
 
-        var give = new DiscordCommand("!give", "Adds item directly into player inventory, `<string:PlayerName>` `<string:ItemName>` `<int:Stack>` `<int?:Quality>` `<int?:Variant>`", args =>
+        var give = new DiscordCommand("!give", "Adds item directly into player inventory, `player name` `item name` `amount` `quality?` `variant?`", args =>
         {
             if (args.Length < 4) return;
             var playerName = args[1].Trim();
@@ -201,7 +229,7 @@ public static class DiscordCommands
         }, adminOnly:true, emoji:"gift");
 
         var teleportAll = new DiscordCommand("!teleportall",
-            "Teleports all players to location, `<float:x>` `<float:y>` `<float:z>`",
+            "Teleports all players to location, `x` `y` `z`",
             args =>
             {
                 if (args.Length != 4) return;
@@ -222,7 +250,7 @@ public static class DiscordCommands
                 }
             }, adminOnly: true, emoji:"golf");
 
-        var teleportTo = new DiscordCommand("!teleport", "Teleport player to location, `<string:PlayerName>` `<string:bed>` or `<string:OtherPlayerName>` or `<float:x>` `<float:y>` `<float:z>`", args =>
+        var teleportTo = new DiscordCommand("!teleport", "Teleport player to location, `player name` `bed` or `other player name` or `x` `y` `z`", args =>
         {
             if (args.Length < 5) return;
             var playerName = args[1].Trim();
@@ -300,7 +328,7 @@ public static class DiscordCommands
             }
         },adminOnly:true, emoji:"run");
 
-        var spawn = new DiscordCommand("!spawn", "spawns prefab at location, `<string:PrefabName>` `<int:Level>` `<string:PlayerName>` or `<float:x>` `<float:y>` `<float:z>`", args =>
+        var spawn = new DiscordCommand("!spawn", "spawns prefab at location, `prefab name` `level` `player name` or `x` `y` `z`", args =>
         {
             if (args.Length < 4) return;
             var prefabName = args[1].Trim();
@@ -371,6 +399,25 @@ public static class DiscordCommands
             MessageHud.instance.MessageAll(MessageHud.MessageType.Center, message);
         }, adminOnly: true, emoji:"smile");
 
+        var image = new DiscordCommand("!image", "Broadcast image to all players which takes over entire screen",
+            args =>
+            {
+                if (args.Length < 2) return;
+                var url = args[1].Trim();
+                var pkg = new ZPackage();
+                pkg.Write("!image");
+                pkg.Write(url);
+                foreach(var peer in ZNet.instance.GetPeers()) peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
+                if (Player.m_localPlayer)
+                {
+                    Discord.instance.GetImage(url);
+                }
+            }, pkg =>
+            {
+                var url = pkg.ReadString();
+                Discord.instance.GetImage(url);
+            },adminOnly: true, emoji: "paint");
+
         var forceSleep =
             new DiscordCommand("!sleep", "Forced everyone to sleep", _ =>
             {
@@ -381,29 +428,78 @@ public static class DiscordCommands
                 ZRoutedRpc.instance.InvokeRoutedRPC(ZRoutedRpc.Everybody, "SleepStart");
             }, adminOnly: true, emoji: "moon");
 
+        var listKeys = new DiscordCommand("!listkeys", "List of global keys", _ =>
+        {
+            StringBuilder stringBuilder = new StringBuilder();
+            foreach (var key in Enum.GetValues(typeof(GlobalKeys)))
+            {
+                stringBuilder.Append($"`{key}`\n");
+            }
+            Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, "Global keys:", stringBuilder.ToString(), ZNet.instance.GetWorldName());
+        }, emoji: "fox");
+
+        var currentKeys = new DiscordCommand("!keys", "List of current global keys", _ =>
+        {
+            StringBuilder stringBuilder = new StringBuilder();
+            foreach (var key in ZoneSystem.instance.GetGlobalKeys())
+            {
+                stringBuilder.Append($"`{key}`\n");
+            }
+            Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, "Active keys:", stringBuilder.ToString(), ZNet.instance.GetWorldName());
+        }, emoji:"game");
+
         var setKey = new DiscordCommand("!setkey", "Set global key", args =>
         {
             if (args.Length < 2) return;
-            var key = args[1];
-            if (!Enum.TryParse(key, out GlobalKeys globalKey))
+            var key = args[1].Trim();
+            if (!Enum.TryParse(key, true, out GlobalKeys globalKey))
             {
                 Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), "Failed to find global key: " + key);
-                return;
             }
-            ZoneSystem.instance.SetGlobalKey(globalKey);
+            else
+            {
+                ZoneSystem.instance.SetGlobalKey(globalKey);
+            }
         }, adminOnly: true, emoji:"unicorn");
+
+        var removeKey = new DiscordCommand("!removekey", "Remove global key", args =>
+            {
+                if (args.Length < 2) return;
+                var key = args[1].Trim();
+                if (!Enum.TryParse(key, true, out GlobalKeys globalKey))
+                {
+                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), "Failed to find global key: " + key);
+                }
+                else
+                {
+                    ZoneSystem.instance.RemoveGlobalKey(globalKey);
+                }
+            }, adminOnly: true,
+            emoji: "pencil");
+
+        var listPrefabs = new DiscordCommand("!listprefabs", "List of prefabs available to spawn, `filter`",
+            args =>
+            {
+                var filter = args.Length > 1 ? args[1].Trim().ToLower() : "";
+                StringBuilder stringBuilder = new StringBuilder();
+                foreach (var prefab in ZNetScene.instance.m_prefabs.Where(x => x.name.ToLower().Contains(filter)))
+                {
+                    stringBuilder.Append($"`{prefab.name}`\n");
+                }
+                Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, "Prefab Names:", stringBuilder.ToString(), ZNet.instance.GetWorldName());
+            }, adminOnly: true, emoji: "fire");
 
         var eventList = new DiscordCommand("!listevents", "List of available event names", _ =>
         {
             StringBuilder stringBuilder = new StringBuilder();
             foreach (var randomEvent in RandEventSystem.instance.m_events)
             {
-                stringBuilder.Append($"{randomEvent.m_name}\n");
+                stringBuilder.Append($"`{randomEvent.m_name}`\n");
             }
             Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, "Available events:", stringBuilder.ToString(), ZNet.instance.GetWorldName());
         }, adminOnly: true, emoji:"moon");
 
-        var startEvent = new DiscordCommand("!event", "Starts a event on a player, `<string:EventName>` `<string:PlayerName>`", args =>
+        var startEvent = new DiscordCommand("!event", "Starts a event on a player, `event name` `player name`", args =>
         {
             if (args.Length < 3) return;
             var eventName = args[1].Trim();
@@ -438,7 +534,7 @@ public static class DiscordCommands
             foreach (var status in ObjectDB.instance.m_StatusEffects) stringBuilder.Append($"`{status.name}`\n");
             Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, "Available status effects:", stringBuilder.ToString(), ZNet.instance.GetWorldName());
         }, emoji: "rocket");
-        var addStatus = new DiscordCommand("!addstatus", "Add status effect on player, `<string:PlayerName>` `<string:StatusEffect>` `<float:Duration>`", args =>
+        var addStatus = new DiscordCommand("!addstatus", "Add status effect on player, `player name` `status effect` `duration`", args =>
             {
                 if (args.Length != 4) return;
                 var playerName = args[1].Trim();
@@ -478,7 +574,7 @@ public static class DiscordCommands
                 if (duration > 0f) status.m_ttl = duration;
             },
             adminOnly: true, emoji: "pizza");
-        var heal = new DiscordCommand("!heal", "Heals to full health & stamina, `<string:PlayerName>`", args =>
+        var heal = new DiscordCommand("!heal", "Heals to full health & stamina, `player name`", args =>
             {
                 if (args.Length < 2) return;
                 var playerName = args[1].Trim();
@@ -507,7 +603,7 @@ public static class DiscordCommands
                 Player.m_localPlayer.AddEitr(Player.m_localPlayer.GetMaxEitr());
             }, adminOnly: true, emoji: "heart");
 
-        var die = new DiscordCommand("!die", "Kills player, <string:PlayerName>", args =>
+        var die = new DiscordCommand("!die", "Kills player, `player name`", args =>
             {
                 if (args.Length < 2) return;
                 var playerName = args[1].Trim();
@@ -543,7 +639,7 @@ public static class DiscordCommands
             Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, "Available skill types:", stringBuilder.ToString(), ZNet.instance.GetWorldName());
         }, emoji: "pray");
         var raiseSkill = new DiscordCommand("!raiseskill",
-            "Raises skill level, `<string:PlayerName>` `<string:SkillType>` `<float:Amount>`",
+            "Raises skill level, `player name` `stkill type` `amount`",
             args =>
             {
                 if (args.Length < 3) return;
@@ -580,7 +676,7 @@ public static class DiscordCommands
                 Player.m_localPlayer.GetSkills().CheatRaiseSkill(skillType, amount);
             }, adminOnly: true, emoji: "muscle");
 
-        var pos = new DiscordCommand("!pos", "Player position, `<string:PlayerName>`", args =>
+        var pos = new DiscordCommand("!pos", "Player position, `player name`", args =>
         {
             if (args.Length < 2) return;
             var playerName = args[1].Trim();
@@ -602,7 +698,7 @@ public static class DiscordCommands
             Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, ZNet.instance.GetWorldName(), $"{playerName} position: {pos.x},{pos.y},{pos.z}");
             
         }, adminOnly: true, emoji: "rose");
-        var stats = new DiscordCommand("!stats", "Player stats, player must be online, `<string:PlayerName>`", args =>
+        var stats = new DiscordCommand("!stats", "Player stats, player must be online, `player name`", args =>
         {
             if (args.Length < 2) return;
             var playerName = args[1].Trim();
@@ -646,7 +742,7 @@ public static class DiscordCommands
             Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, $"{profile.m_playerName} Stats", stringBuilder.ToString(), ZNet.instance.GetWorldName());
         },emoji: "wine");
 
-        var mods = new DiscordCommand("!mods", "List of plugin installed, `<string?:PlayerName>`", args =>
+        var mods = new DiscordCommand("!mods", "List of plugin installed, `player name?`", args =>
             {
                 if (args.Length > 1)
                 {
@@ -745,9 +841,7 @@ public static class DiscordCommands
             m_commands[command] = this;
             if (!isSecret)
             {
-                string commandKey = BuildCommandKey(command, emoji);
-                string commandDescription = BuildCommandDescription(description, adminOnly);
-                m_descriptions[commandKey] = commandDescription;
+                var tooltip = new CommandTooltip(command, description, adminOnly, emoji);
             }       
         }
 
@@ -756,18 +850,26 @@ public static class DiscordCommands
         public void Run(string[] args) => m_action.Invoke(args);
 
         public void Run(ZPackage pkg) => m_reaction?.Invoke(pkg);
+    }
+
+    public class CommandTooltip
+    {
+        public readonly string m_command;
+        public readonly string m_description;
+        public readonly bool m_adminOnly;
+
+        public CommandTooltip(string command, string description, bool adminOnly, string emoji)
+        {
+            m_command = BuildCommandKey(command, emoji);
+            m_description = description;
+            m_adminOnly = adminOnly;
+            m_tooltips.Add(this);
+        }
         
         private static string BuildCommandKey(string command, string emoji)
         {
             string emojiPrefix = string.IsNullOrEmpty(emoji) ? "" : $"{EmojiHelper.Emoji(emoji)} ";
             return $"{emojiPrefix}`{command}`";
-        }
-
-        private static string BuildCommandDescription(string description, bool adminOnly)
-        {
-            if (!adminOnly) return description;
-            string adminSuffix = $"\n\n{Formatting.Format("[Only Admin]", Formatting.TextFormat.BoldItalic)}";
-            return description + adminSuffix;
         }
     }
 }
