@@ -1,5 +1,4 @@
-﻿using BepInEx.Configuration;
-using HarmonyLib;
+﻿using HarmonyLib;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -59,7 +58,6 @@ public class ImageHud : MonoBehaviour
     {
         if (!m_fading) return;
 
-        // Move towards target
         m_currentColor = Color.Lerp(
             m_currentColor,
             m_targetColor,
@@ -68,17 +66,14 @@ public class ImageHud : MonoBehaviour
 
         m_bkg.color = m_currentColor;
 
-        // Stop when close enough to target
-        if (Mathf.Abs(m_currentColor.a - m_targetColor.a) < 0.01f)
-        {
-            m_currentColor = m_targetColor;
-            m_bkg.color = m_targetColor;
-            m_targetColor = Color.clear;
+        if (!(Mathf.Abs(m_currentColor.a - m_targetColor.a) < 0.01f)) return;
+        m_currentColor = m_targetColor;
+        m_bkg.color = m_targetColor;
+        m_targetColor = Color.clear;
 
-            if (m_currentColor == Color.clear)
-            {
-                m_fading = false;
-            }
+        if (m_currentColor == Color.clear)
+        {
+            m_fading = false;
         }
     }
 

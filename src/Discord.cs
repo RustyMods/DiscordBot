@@ -19,6 +19,9 @@ public class Discord : MonoBehaviour
         private static void Postfix(ZNet __instance)
         {
             m_instance.gameObject.AddComponent<Discord>();
+            if (!__instance.IsServer()) return;
+            if (m_serverStartNotice.Value is Toggle.Off) return;
+            instance.SendStatus(Webhook.Notifications, "$msg_server_start", __instance.GetWorldName(), "$status_launch", new Color(0.4f, 0.98f, 0.24f));
         }
     }
 
@@ -27,6 +30,7 @@ public class Discord : MonoBehaviour
     public event Action<Message>? OnMessageReceived;
     public event Action<Message>? OnCommandReceived;
     public event Action<Sprite>? OnImageDownloaded;
+    public event Action<AudioClip>? OnAudioDownloaded;
     public event Action<string>? OnError;
     
     private string m_lastMessageID = "";
@@ -34,6 +38,7 @@ public class Discord : MonoBehaviour
     private bool m_isPollingChatter;
     private bool m_isPollingCommands;
     private bool m_isDownloadingImage;
+    private bool m_isDownloadingSound;
 
     private DateTime m_timeLoaded;
 
@@ -111,7 +116,8 @@ public class Discord : MonoBehaviour
         m_isDownloadingImage = true;
         StartCoroutine(DownloadImage(imageUrl));
     }
-    public IEnumerator DownloadImage(string imageUrl)
+
+    private IEnumerator DownloadImage(string imageUrl)
     {
         using UnityWebRequest request = UnityWebRequestTexture.GetTexture(imageUrl);
         yield return request.SendWebRequest();
@@ -132,6 +138,34 @@ public class Discord : MonoBehaviour
             OnImageDownloaded?.Invoke(sprite);
         }
         m_isDownloadingImage = false;
+    }
+    #endregion
+    
+    #region Sound Download
+
+    public void GetSound(string url, AudioType type)
+    {
+        if (m_isDownloadingSound) return;
+        m_isDownloadingSound = true;
+        StartCoroutine(DownloadSound(url, type));
+    }
+
+    private IEnumerator DownloadSound(string url, AudioType type)
+    {
+        using UnityWebRequest request = UnityWebRequestMultimedia.GetAudioClip(url, type);
+        ((DownloadHandlerAudioClip)request.downloadHandler).streamAudio = true;
+        yield return request.SendWebRequest();
+
+        if (request.result != UnityWebRequest.Result.Success)
+        {
+            OnError?.Invoke("Failed to download audio: " + request.error);   
+        }
+        else
+        {
+            var clip = DownloadHandlerAudioClip.GetContent(request);
+            OnAudioDownloaded?.Invoke(clip);
+        }
+        m_isDownloadingSound = false;
     }
     #endregion
     
@@ -158,22 +192,21 @@ public class Discord : MonoBehaviour
     #endregion
     
     #region Sending Messages to Discord
-
     
     // does not work
-    public void SendComponentMessage(Webhook webhook, string username, params EmbedComponent[] components)
+    public void SendComponentMessage(Webhook webhook, string username = "", params EmbedComponent[] components)
     {
         var layoutData = new DiscordWebhookComponents(username, components);
         StartCoroutine(SendLayoutMessage(layoutData, GetWebhookURL(webhook)));
     }
     
-    public void SendMessage(Webhook webhook, string username, string message)
+    public void SendMessage(Webhook webhook, string username = "", string message = "")
     {
         var webhookData = new DiscordWebhookData(username, message);
         StartCoroutine(SendWebhookMessage(webhookData, GetWebhookURL(webhook)));
     }
 
-    public void SendEmbedMessage(Webhook webhook, string title, string content, string username, string thumbnail = "")
+    public void SendEmbedMessage(Webhook webhook, string title, string content, string username = "", string thumbnail = "")
     {
         var embed = new Embed(title, content);
         embed.AddThumbnail(thumbnail);
@@ -182,7 +215,7 @@ public class Discord : MonoBehaviour
         StartCoroutine(SendWebhookMessage(webhookData, GetWebhookURL(webhook)));
     }
     
-    public void SendTableEmbed(Webhook webhook, string title, Dictionary<string, string> tableData, string username, string thumbnail = "")
+    public void SendTableEmbed(Webhook webhook, string title, Dictionary<string, string> tableData, string username = "", string thumbnail = "")
     {
         if (tableData.Count <= 0)
         {
@@ -200,6 +233,19 @@ public class Discord : MonoBehaviour
         
         var webhookData = new DiscordWebhookData(username, embed);
 
+        StartCoroutine(SendWebhookMessage(webhookData, GetWebhookURL(webhook)));
+    }
+
+    public void SendStatus(Webhook webhook, string content, string worldName, string status, Color color, string username = "", string thumbnail = "")
+    {
+        var embed = new Embed(content);
+        embed.SetColor(color);
+        List<EmbedField> fields = new();
+        fields.Add(new EmbedField("$label_worldname", worldName));
+        fields.Add(new EmbedField("$label_status", status));
+        embed.fields = fields.ToArray();
+        embed.AddThumbnail(thumbnail);
+        var webhookData = new DiscordWebhookData(username, embed);
         StartCoroutine(SendWebhookMessage(webhookData, GetWebhookURL(webhook)));
     }
 
@@ -396,7 +442,7 @@ public class Discord : MonoBehaviour
     #region Utility Methods
     
     [Description("Color utility to format into int for discord")]
-    private int ColorToInt(Color color)
+    public static int ColorToInt(Color color)
     {
         int r = Mathf.RoundToInt(color.r * 255);
         int g = Mathf.RoundToInt(color.g * 255);
@@ -413,21 +459,28 @@ public class Discord : MonoBehaviour
     {
         public string? content; // up to 2000 characters
         public bool tts; // text-to-speech
-        public Embed[]? embeds;
-        public string? username;
-        public string? avatar_url = Links.DefaultAvatar;
+        public Embed[]? embeds; // up to 10
+        public string? username; // override username display
+        public string? avatar_url;
 
         public DiscordWebhookData(string username, string content)
         {
-            this.username = username;
+            if (!string.IsNullOrEmpty(username)) this.username = username;
             this.content = Localization.instance.Localize(content);
         }
 
         public DiscordWebhookData(string username, params Embed[] embeds)
         {
-            this.username = username;
+            if (!string.IsNullOrEmpty(username)) this.username = username;
             this.embeds = embeds;
         }
+    }
+
+    public enum DiscordMessageFlags
+    {
+        CrossPosted = 0, Is_CrossPost = 1, Suppress_Embeds = 2, Source_Message_Deleted = 3, 
+        Urgent = 4, Has_Thread = 5, Ephemeral = 6, Loading = 7, Failed_To_Mention_Some_Roles_In_Thread = 8,
+        Suppress_Notifications = 12, Is_Voice_Message = 13, Has_Snapshot = 14, Is_Components_V2 = 15
     }
     
     #region Component
@@ -438,10 +491,11 @@ public class Discord : MonoBehaviour
         public string? username;
         public string? avatar_url;
         public EmbedComponent[]? components;
+        public int flags = (int)DiscordMessageFlags.Is_Components_V2;
 
         public DiscordWebhookComponents(string username, params EmbedComponent[] components)
         {
-            this.username = username;
+            if (!string.IsNullOrEmpty(username)) this.username = username;
             this.components = components;
         }
     }
@@ -614,6 +668,12 @@ public class Discord : MonoBehaviour
             this.fields = fields;
             timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
         }
+
+        public Embed(string description)
+        {
+            this.description = Localization.instance.Localize(description);
+            timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+        }
         
         public Embed(string title, List<EmbedField> fields) : this (title, fields.ToArray()){}
 
@@ -627,6 +687,11 @@ public class Discord : MonoBehaviour
         {
             if (string.IsNullOrEmpty(thumbnailUrl)) return;
             thumbnail = new EmbedImage(thumbnailUrl);
+        }
+
+        public void SetColor(Color Color)
+        {
+            this.color = ColorToInt(Color);
         }
     }
     
@@ -676,8 +741,8 @@ public class Discord : MonoBehaviour
 
         public EmbedField(string name, string value, bool inline = true)
         {
-            this.name = name;
-            this.value = value;
+            this.name = Localization.instance.Localize(name);
+            this.value = Localization.instance.Localize(value);
             this.inline = inline;
         }
     }

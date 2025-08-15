@@ -1,4 +1,5 @@
 ﻿using HarmonyLib;
+using UnityEngine;
 using static DiscordBot.DiscordBotPlugin;
 
 namespace DiscordBot.Notices;
@@ -12,8 +13,7 @@ public static class Server
         {
             if (m_serverSaveNotice.Value is Toggle.Off) return;
             if (!__instance.IsServer()) return;
-            var WorldName = __instance.GetWorldName();
-            Discord.instance.SendMessage(Webhook.Notifications, WorldName, "$msg_server_saving");
+            Discord.instance.SendStatus(Webhook.Notifications, "$msg_server_saving", __instance.GetWorldName(), "$status_saving", new Color(0.4f, 0.98f, 0.24f));
         }
     }
 
@@ -24,19 +24,7 @@ public static class Server
         {
             if (m_serverStopNotice.Value is Toggle.Off) return;
             if (!__instance.IsServer()) return;
-            var WorldName = ZNet.instance.GetWorldName();
-            Discord.instance.SendMessage(Webhook.Notifications, WorldName, "$msg_server_stop");
-        }
-    }
-
-    [HarmonyPatch(typeof(ZNet), nameof(ZNet.OpenServer))]
-    private static class ZNet_OpenServer_Patch
-    {
-        private static void Postfix(ZNet __instance)
-        {
-            if (!__instance.IsServer()) return;
-            if (m_serverStartNotice.Value is Toggle.Off) return;
-            Discord.instance.SendMessage(Webhook.Notifications, __instance.GetWorldName(), "$msg_server_start");
+            Discord.instance.SendStatus(Webhook.Notifications, "$msg_server_stop", __instance.GetWorldName(), "$status_offline", new Color(1f, 0.2f, 0f, 1f));
         }
     }
 
@@ -47,7 +35,7 @@ public static class Server
         {
             if (!__instance.IsServer()) return;
             if (m_loginNotice.Value is Toggle.Off || __instance.GetPeer(rpc) is not { } peer || !__instance.IsConnected(peer.m_uid)) return;
-            Discord.instance.SendMessage(Webhook.Notifications, __instance.GetWorldName(), $"{peer.m_playerName} $label_has_joined");
+            Discord.instance.SendMessage(Webhook.Notifications, message: $"{peer.m_playerName} $label_has_joined");
         }
     }
     
@@ -58,7 +46,7 @@ public static class Server
         {
             if (!__instance.IsServer()) return;
             if (__instance.GetPeer(rpc) is not { } peer) return;
-            Discord.instance.SendMessage(Webhook.Notifications, ZNet.instance.GetWorldName(), $"{peer.m_playerName} $label_has_left");
+            Discord.instance.SendMessage(Webhook.Notifications, message: $"{peer.m_playerName} $label_has_left");
         }
     }
 }

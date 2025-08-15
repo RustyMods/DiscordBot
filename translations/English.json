@@ -7,5 +7,12 @@
   "title_new_connection" : "New Connection!",
   "msg_server_start" : "Server is booting up!",
   "label_has_joined" : "has joined!",
-  "label_has_left"  : "has left!"
+  "label_has_left"  : "has left!",
+  "msg_shout"  : "shouts",
+  "status_saving" : "Saving",
+  "status_offline" : "Offline",
+  "status_online" : "Online",
+  "status_launch" : "Launching",
+  "label_worldname": "World",
+  "label_status" : "Status"
 }

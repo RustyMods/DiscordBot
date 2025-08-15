@@ -47,7 +47,9 @@ public static class OnDeath
 
                 killedBy = Format(hit.m_hitType.ToString());
             }
-            Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Notifications, $"{EmojiHelper.Emoji("balloon")} {__instance.GetPlayerName()} $label_has_died!", $"$label_killed_by {killedBy}", ZNet.instance.GetWorldName(), avatar);
+            Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Notifications, 
+                $"{__instance.GetPlayerName()} $label_has_died!", $"$label_killed_by {killedBy}", 
+                thumbnail: avatar);
         }
     }
 }

@@ -31,6 +31,8 @@ namespace DiscordBot
         public enum Toggle { On = 1, Off = 0 }
         public enum Webhook { Notifications, Chat, Commands }
         public enum Channel { Chat, Commands }
+        
+        public enum ChatDisplay { Player, Bot }
 
         public static DiscordBotPlugin m_instance = null!;
         
@@ -45,6 +47,7 @@ namespace DiscordBot
         public static ConfigEntry<string> m_chatWebhookURL = null!;
         public static ConfigEntry<string> m_chatChannelID = null!;
         public static ConfigEntry<Toggle> m_chatEnabled = null!;
+        public static ConfigEntry<ChatDisplay> m_chatType = null!;
 
         public static ConfigEntry<string> m_commandWebhookURL = null!;
         public static ConfigEntry<string> m_commandChannelID = null!;
@@ -92,6 +95,8 @@ namespace DiscordBot
             m_chatWebhookURL = config("3 - Chat", "Webhook URL", "", "Set discord webhook to display chat messages");
             m_chatChannelID = config("3 - Chat", "Channel ID", "", "Set channel ID to monitor for messages");
             m_chatEnabled = config("3 - Chat", "Enabled", Toggle.On, "If on, bot will send message when player shouts and monitor discord for messages");
+            m_chatType = config("3 - Chat", "Display As", ChatDisplay.Player,
+                "Set how chat messages appear, if Player, message sent by player, else sent by bot with a prefix that player is saying");
             
             m_commandWebhookURL = config("4 - Commands", "Webhook URL", "", "Set discord webhook to display feedback messages from commands");
             m_commandChannelID = config("4 - Commands", "Channel ID", "", "Set channel ID to monitor for input commands");
