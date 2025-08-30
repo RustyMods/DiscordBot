@@ -1,4 +1,5 @@
 ﻿using HarmonyLib;
+using JetBrains.Annotations;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -12,13 +13,14 @@ public class ImageHud : MonoBehaviour
     [HarmonyPatch(typeof(Tutorial), nameof(Tutorial.Awake))]
     private static class Tutorial_Awake_Patch
     {
+        [UsedImplicitly]
         private static void Postfix(Tutorial __instance)
         {
             if (m_loaded) return;
-            var root = Object.Instantiate(__instance.transform.Find("Tutorial_wnd").gameObject, __instance.transform.parent);
+            GameObject? root = Instantiate(__instance.transform.Find("Tutorial_wnd").gameObject, __instance.transform.parent);
             root.name = "DiscordImage";
             root.AddComponent<ImageHud>();
-            var canvas = root.AddComponent<Canvas>();
+            Canvas? canvas = root.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             root.SetActive(true);
             m_loaded = true;

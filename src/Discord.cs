@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Text;
 using HarmonyLib;
+using JetBrains.Annotations;
 using Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -16,6 +17,7 @@ public class Discord : MonoBehaviour
     [HarmonyPatch(typeof(ZNet), nameof(ZNet.Awake))]
     private static class ZNet_Awake_Patch
     {
+        [UsedImplicitly]
         private static void Postfix(ZNet __instance)
         {
             m_instance.gameObject.AddComponent<Discord>();
@@ -57,9 +59,9 @@ public class Discord : MonoBehaviour
     private void Start()
     {
         if (!ZNet.instance || !ZNet.m_isServer) return;
-        if (string.IsNullOrEmpty(Token.BOT_TOKEN))
+        if (string.IsNullOrEmpty(m_botToken.Value))
         {
-            DiscordBotLogger.LogError("Bot token not set, contact Rusty on OdinPlus discord");
+            DiscordBotLogger.LogWarning("Bot token not set");
             return;
         }
         if (!string.IsNullOrEmpty(m_chatChannelID.Value) && m_chatEnabled.Value is Toggle.On) StartPollingChatter();
@@ -223,7 +225,7 @@ public class Discord : MonoBehaviour
         }
         var fields = new List<EmbedField>();
 
-        foreach (var kvp in tableData)
+        foreach (KeyValuePair<string, string> kvp in tableData)
         {
             fields.Add(new EmbedField(kvp.Key, kvp.Value));
         }
@@ -307,14 +309,14 @@ public class Discord : MonoBehaviour
     
     public void StartPollingChatter()
     {
-        if (m_isPollingChatter || string.IsNullOrEmpty(Token.BOT_TOKEN) || string.IsNullOrEmpty(m_chatChannelID.Value)) return;
+        if (m_isPollingChatter || string.IsNullOrEmpty(m_botToken.Value) || string.IsNullOrEmpty(m_chatChannelID.Value)) return;
         m_isPollingChatter = true;
         StartCoroutine(PollForMessages());
     }
 
     public void StartPollingCommands()
     {
-        if (!m_isPollingCommands && !string.IsNullOrEmpty(Token.BOT_TOKEN) &&
+        if (!m_isPollingCommands && !string.IsNullOrEmpty(m_botToken.Value) &&
             !string.IsNullOrEmpty(m_commandChannelID.Value))
         {
             m_isPollingCommands = true;
@@ -351,7 +353,7 @@ public class Discord : MonoBehaviour
         string url = $"https://discord.com/api/v10/channels/{GetChannelID(Channel.Commands)}/messages?limit=1";
 
         using UnityWebRequest request = UnityWebRequest.Get(url);
-        request.SetRequestHeader("Authorization", $"Bot {Token.BOT_TOKEN}");
+        request.SetRequestHeader("Authorization", $"Bot {m_botToken.Value}");
         request.SetRequestHeader("Content-Type", "application/json");
         
         yield return request.SendWebRequest();
@@ -397,7 +399,7 @@ public class Discord : MonoBehaviour
         }
 
         using UnityWebRequest request = UnityWebRequest.Get(url);
-        request.SetRequestHeader("Authorization", $"Bot {Token.BOT_TOKEN}");
+        request.SetRequestHeader("Authorization", $"Bot {m_botToken.Value}");
         request.SetRequestHeader("Content-Type", "application/json");
             
         yield return request.SendWebRequest();

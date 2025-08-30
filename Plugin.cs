@@ -56,6 +56,8 @@ namespace DiscordBot
         public static ConfigEntry<string> m_discordAdmins = null!;
         public static ConfigEntry<Toggle> m_logErrors = null!;
 
+        public static ConfigEntry<string> m_botToken = null!;
+
         public static string GetWebhookURL(Webhook type) => type switch
         {
             Webhook.Chat => m_chatWebhookURL.Value,
@@ -87,16 +89,13 @@ namespace DiscordBot
             m_serverStopNotice = config("2 - Notifications", "Shutdown", Toggle.On, "If on, bot will send message when server is shutting down");
             m_serverSaveNotice = config("2 - Notifications", "Saving", Toggle.On, "If on, bot will send message when server is saving");
             m_deathNotice = config("2 - Notifications", "On Death", Toggle.On, "If on, bot will send message when player dies");
-            m_loginNotice = config("2 - Notifications", "Login", Toggle.On,
-                "If on, bot will send message when player logs in");
-            m_logoutNotice = config("2 - Notifications", "Logout", Toggle.On,
-                "If on, bot will send message when player logs out");
+            m_loginNotice = config("2 - Notifications", "Login", Toggle.On, "If on, bot will send message when player logs in");
+            m_logoutNotice = config("2 - Notifications", "Logout", Toggle.On, "If on, bot will send message when player logs out");
 
             m_chatWebhookURL = config("3 - Chat", "Webhook URL", "", "Set discord webhook to display chat messages");
             m_chatChannelID = config("3 - Chat", "Channel ID", "", "Set channel ID to monitor for messages");
             m_chatEnabled = config("3 - Chat", "Enabled", Toggle.On, "If on, bot will send message when player shouts and monitor discord for messages");
-            m_chatType = config("3 - Chat", "Display As", ChatDisplay.Player,
-                "Set how chat messages appear, if Player, message sent by player, else sent by bot with a prefix that player is saying");
+            m_chatType = config("3 - Chat", "Display As", ChatDisplay.Player, "Set how chat messages appear, if Player, message sent by player, else sent by bot with a prefix that player is saying");
             
             m_commandWebhookURL = config("4 - Commands", "Webhook URL", "", "Set discord webhook to display feedback messages from commands");
             m_commandChannelID = config("4 - Commands", "Channel ID", "", "Set channel ID to monitor for input commands");
@@ -104,6 +103,8 @@ namespace DiscordBot
             {
                 CustomDrawer = StringListConfig.Draw
             }));
+
+            m_botToken = config("5 - Setup", "BOT TOKEN", "", "Add bot token here, server only", false);
             
             DiscordCommands.Setup();
 

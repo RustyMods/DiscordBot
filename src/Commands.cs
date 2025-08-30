@@ -381,12 +381,12 @@ public static class DiscordCommands
             ZNet.instance.Save(true, true, true);
         }, adminOnly: true, emoji:"save");
 
-        var shutDown = new DiscordCommand("!shutdown", "Save player profiles, save world and shutdown, bot cannot start server", _ =>
-        {
-            ZNet.instance.SaveOtherPlayerProfiles();
-            ZNet.instance.Shutdown();
-            Application.Quit();
-        }, adminOnly: true, emoji:"stop");
+        // var shutDown = new DiscordCommand("!shutdown", "Save player profiles, save world and shutdown, bot cannot start server", _ =>
+        // {
+        //     ZNet.instance.SaveOtherPlayerProfiles();
+        //     ZNet.instance.Shutdown();
+        //     Application.Quit();
+        // }, adminOnly: true, emoji:"stop");
 
         var message = new DiscordCommand("!message", "Broadcast message to all players which shows up center of screen", args =>
         {

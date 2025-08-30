@@ -40,6 +40,10 @@ After first run, configuration files will be generated in `BepInEx/config/`. Edi
 - 
 ## Discord Setup
 
+### Inviting ValheimBot
+
+https://discord.com/oauth2/authorize?client_id=1404674427169275955&permissions=274877987840&integration_type=0&scope=bot
+
 ### Creating Discord Webhooks
 
 Webhooks allow the plugin to send messages to Discord channels without using the bot's identity.
