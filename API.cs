@@ -65,7 +65,7 @@ public static class DiscordBot_API
     /// <param name="action">delegate invoked to run command</param>
     /// <param name="reaction">if action requires to send to peers to run of the client, this is the delegate the client runs</param>
     /// <param name="adminOnly">if true, only discord username registered to config file are allowed to run command</param>
-    /// <param name="isSecret">if false, command description is not sent to discord when command !help is called</param>
+    /// <param name="isSecret">if true, command description is not sent to discord when command !help is called</param>
     /// <param name="emoji">name of emoji to be displayed when description is sent to discord</param>
     public static void RegisterCommand(string command, string description, 
         Action<string[]> action, Action<ZPackage>? reaction = null, 
