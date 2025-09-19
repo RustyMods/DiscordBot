@@ -785,7 +785,10 @@ public static class DiscordCommands
             }, emoji: "guitar");
         
         loaded = true;
-        foreach(var externalCommands in API.m_queue) externalCommands.Invoke(); // for some reason, just directly adding commands removes !help command.
+        foreach (var externalCommands in API.m_queue)
+        {
+            externalCommands.Invoke(); // for some reason, just directly adding commands removes !help command.
+        }
     }
     
     public static bool Spawn(string prefabName, int level, Vector3 pos)

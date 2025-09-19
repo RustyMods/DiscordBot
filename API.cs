@@ -12,7 +12,7 @@ namespace DiscordBot;
 [PublicAPI]
 public static class API
 {
-    public static Queue<Action> m_queue = new Queue<Action>();
+    public static List<Action> m_queue = new List<Action>();
     
     public static void RegisterCommand(string command, string description, Action<string[]>? action, Action<ZPackage>? reaction, bool adminOnly, bool isSecret, string emoji)
     {
@@ -27,7 +27,7 @@ public static class API
         }
         else
         {
-            m_queue.Enqueue(() =>
+            m_queue.Add(() =>
             {
                 if (DiscordCommands.m_commands.ContainsKey(command)) return;
                 _ = new DiscordCommands.DiscordCommand(command, description, action, reaction, adminOnly, isSecret, emoji);

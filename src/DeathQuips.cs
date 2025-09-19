@@ -8,7 +8,7 @@ namespace DiscordBot;
 
 public static class DeathQuips
 {
-    private static Dir QuipsDir = new Dir(DiscordBotPlugin.directory.Path, "Quips");
+    private static readonly Dir QuipsDir = new Dir(DiscordBotPlugin.directory.Path, "Quips");
     private static readonly Random random = new Random();
     
     private static string[] Templates = {
