@@ -1,13 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using BepInEx;
 
 namespace DiscordBot;
 
 public static class DeathQuips
 {
+    private static Dir QuipsDir = new Dir(DiscordBotPlugin.directory.Path, "Quips");
     private static readonly Random random = new Random();
     
-    private static readonly string[] templates = {
+    private static string[] Templates = {
         "{player} thought they could take on {creature}{level}. They were wrong. So very wrong.",
         "Breaking news: {creature}{level} just turned {player} into yesterday's lunch!",
         "{player} has been graciously donated to the {creature}{level} retirement fund.",
@@ -25,21 +29,21 @@ public static class DeathQuips
         "Medical examiner's report: {player} suffered from acute {creature}{level} syndrome."
     };
     
-    private static readonly string[] lowLevelInsults = {
+    private static string[] LowLevelInsults = {
         "Imagine dying to a {creature}{level}. We're not angry, just disappointed.",
         "{player} was bested by a baby {creature}{level}. Let that sink in.",
         "A {creature}{level} just ended {player}'s whole career. Yikes.",
         "{player} got schooled by {creature}{level}. Time to go back to training wheels!"
     };
     
-    private static readonly string[] highLevelRespect = {
+    private static string[] HighLevelRespect = {
         "{player} faced a legendary {creature}{level} and... well, at least they tried!",
         "{creature}{level} shows no mercy, not even for {player}. Respect the boss fight!",
         "{player} challenged a god-tier {creature}{level}. Bold strategy, poor execution.",
         "That {creature}{level} just reminded everyone why they're the apex predator. Sorry {player}."
     };
     
-    private static readonly string[] bossDeaths = {
+    private static string[] BossDeaths = {
         "{player} has been obliterated by {creature}{level}. Boss fight = Boss loss!",
         "{creature}{level} just demonstrated why they're called a 'boss.' {player} learned this the hard way.",
         "{player} thought they were ready for {creature}{level}. {creature} disagreed... violently."
@@ -51,19 +55,19 @@ public static class DeathQuips
         
         if (isBoss)
         {
-            selectedTemplates = bossDeaths;
+            selectedTemplates = BossDeaths;
         }
         else if (creatureLevel <= 5)
         {
-            selectedTemplates = lowLevelInsults;
+            selectedTemplates = LowLevelInsults;
         }
         else if (creatureLevel >= 50)
         {
-            selectedTemplates = highLevelRespect;
+            selectedTemplates = HighLevelRespect;
         }
         else
         {
-            selectedTemplates = templates;
+            selectedTemplates = Templates;
         }
         
         var template = selectedTemplates[random.Next(selectedTemplates.Length)];
@@ -316,7 +320,6 @@ public static class DeathQuips
             "{player} was killed by the universe's debugging process."
         }
     };
-    
     public static string GenerateEnvironmentalQuip(string playerName, HitData.HitType hitType)
     {
         if (!deathQuips.TryGetValue(hitType, out var quips))
@@ -327,5 +330,79 @@ public static class DeathQuips
         var selectedQuip = quips[random.Next(quips.Length)];
         
         return selectedQuip.Replace("{player}", playerName);
+    }
+
+    public static void Setup()
+    {
+        string[] files = QuipsDir.GetFiles(".txt", true);
+        if (files.Length == 0) Write();
+        else
+        {
+            foreach (var file in files)
+            {
+                var name = Path.GetFileNameWithoutExtension(file);
+                var list = File.ReadAllLines(file);
+                switch (name)
+                {
+                    case nameof(Templates):
+                        Templates = list;
+                        break;
+                    case nameof(LowLevelInsults):
+                        LowLevelInsults = list;
+                        break;
+                    case nameof(HighLevelRespect):
+                        HighLevelRespect = list;
+                        break;
+                    case nameof(BossDeaths):
+                        BossDeaths = list;
+                        break;
+                    default:
+                        if (!Enum.TryParse(name, true, out HitData.HitType hitType)) continue;
+                        deathQuips[hitType] = list;
+                        break;
+                }
+            }
+        }
+        
+        FileSystemWatcher watcher = new FileSystemWatcher(QuipsDir.Path, "*.txt");
+        watcher.EnableRaisingEvents = true;
+        watcher.IncludeSubdirectories = true;
+        watcher.NotifyFilter = NotifyFilters.LastWrite;
+        watcher.SynchronizingObject = ThreadingHelper.SynchronizingObject;
+        watcher.Changed += OnChanged;
+        watcher.Created += OnChanged;
+    }
+
+    private static void OnChanged(object sender, FileSystemEventArgs e)
+    {
+        string name = Path.GetFileNameWithoutExtension(e.FullPath);
+        string[] list = File.ReadAllLines(e.FullPath);
+        switch (name)
+        {
+            case nameof(Templates):
+                Templates = list;
+                break;
+            case nameof(LowLevelInsults):
+                LowLevelInsults = list;
+                break;
+            case nameof(HighLevelRespect):
+                HighLevelRespect = list;
+                break;
+            case nameof(BossDeaths):
+                BossDeaths = list;
+                break;
+            default:
+                if (!Enum.TryParse(name, true, out HitData.HitType hitType)) return;
+                deathQuips[hitType] = list;
+                break;
+        }
+    }
+    private static void Write()
+    {
+        QuipsDir.WriteAllLines(nameof(Templates) + ".txt", Templates.ToList());
+        QuipsDir.WriteAllLines(nameof(LowLevelInsults) + ".txt", LowLevelInsults.ToList());
+        QuipsDir.WriteAllLines(nameof(HighLevelRespect) + ".txt", HighLevelRespect.ToList());
+        QuipsDir.WriteAllLines(nameof(BossDeaths) + ".txt", BossDeaths.ToList());
+        foreach(KeyValuePair<HitData.HitType, string[]> kvp in deathQuips) QuipsDir.WriteAllLines(kvp.Key + ".txt", kvp.Value.ToList());
     }
 }

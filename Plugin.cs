@@ -58,7 +58,7 @@ namespace DiscordBot
         private static readonly ConfigSync ConfigSync = new(ModGUID) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
         private static ConfigEntry<Toggle> _serverConfigLocked = null!;
 
-        public static Dir directory = new(Paths.ConfigPath, "DiscordBot");
+        public static readonly Dir directory = new(Paths.ConfigPath, "DiscordBot");
         
         public static DiscordBotPlugin m_instance = null!;
         
@@ -141,7 +141,7 @@ namespace DiscordBot
             m_botToken = config("5 - Setup", "BOT TOKEN", "", "Add bot token here, server only", false);
             
             DiscordCommands.Setup();
-            
+            DeathQuips.Setup();
 
             Assembly assembly = Assembly.GetExecutingAssembly();
             _harmony.PatchAll(assembly);

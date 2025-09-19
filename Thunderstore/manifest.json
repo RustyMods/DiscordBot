@@ -1,7 +1,7 @@
 {
   "name": "DiscordBot",
   "version_number": "1.0.1",
-  "website_url": "",
+  "website_url": "https://github.com/RustyMods/DiscordBot",
   "description": "Enables two-way communication between your Valheim server and Discord channels.",
   "dependencies": [
     "denikson-BepInExPack_Valheim-5.4.2201",

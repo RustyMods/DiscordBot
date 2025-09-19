@@ -304,11 +304,6 @@ Send commands in your designated command channel:
 **Description:** Save player profiles and world  
 **Usage:** `!save`
 
-### 🛑 `shutdown` **[Admin Only]**
-**Description:** Save player profiles, save world and shutdown server  
-**Usage:** `!shutdown`  
-**Note:** Bot cannot restart the server after shutdown
-
 ### 😊 `message` **[Admin Only]**
 **Description:** Broadcast message to all players (appears center screen)  
 **Usage:** `!message <message text>`  

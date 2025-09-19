@@ -1,6 +1,6 @@
 # Discord Bot Plugin for Valheim
 
-A BepInEx plugin that enables two-way communication between your Valheim server and Discord channels.
+Enables two-way communication between your Valheim server and Discord channels.
 
 ## Features
 
@@ -43,10 +43,10 @@ If you haven't already installed BepInEx:
     - Keep this token secret!, if it leaks, click "Reset Token" to generate a new one
 4. Invite the Bot to your Server
     - In the sidebar, click "O2Auth2" ----> "URL Generator".
-    - Under SCOPES, check `bot`
-    - Under BOT PERMISSIONS, check the permissions your bot will need
+    - Under **SCOPES**, check `bot`
+    - Under **BOT PERMISSIONS**, check the permissions your bot will need
         - Send Messages
-        - Read Messages
+        - Read Message History
         - View Channels
     - Copy the generated URL at the bottom
     - Open that URL in your browser and invite the bot to your Discord server
@@ -85,7 +85,7 @@ After first run, configuration files will be generated in `BepInEx/config/`. Edi
 - Channel IDs
 - Webhook URLs
 - Polling intervals
-- Bot Token
+- Bot Token [SERVER ONLY]
 
 ## Configurations
 
@@ -149,7 +149,7 @@ Discord Admin = .rusty,.warp
 
 [5 - Setup]
 ## Add bot token here, server only
-BOT TOKEN = 
+BOT TOKEN =
 
 
 ```
@@ -303,11 +303,6 @@ Send commands in your designated command channel:
 ### 💾 `save` **[Admin Only]**
 **Description:** Save player profiles and world  
 **Usage:** `!save`
-
-### 🛑 `shutdown` **[Admin Only]**
-**Description:** Save player profiles, save world and shutdown server  
-**Usage:** `!shutdown`  
-**Note:** Bot cannot restart the server after shutdown
 
 ### 😊 `message` **[Admin Only]**
 **Description:** Broadcast message to all players (appears center screen)  
