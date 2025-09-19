@@ -4,7 +4,13 @@ namespace DiscordBot;
 
 public static class Links
 {
-    public static readonly Dictionary<string, string> CreatureLinks = new()
+    public static string GetCreatureIcon(string creatureID, string defaultURL = "")
+    {
+        string normalized = creatureID.Replace("(Clone)", string.Empty);
+        return CreatureLinks.TryGetValue(normalized, out var link) ? link : defaultURL;
+    }
+
+    private static readonly Dictionary<string, string> CreatureLinks = new()
     {
         // Meadows
         ["Boar"] = "https://valheim.fandom.com/wiki/Special:FilePath/Boar_trophy.png",
@@ -20,7 +26,7 @@ public static class Links
         ["Skeleton"] = "https://valheim.fandom.com/wiki/Special:FilePath/Skeleton_trophy.png",
         ["Skeleton_Poison"] = "https://valheim.fandom.com/wiki/Special:FilePath/Rancid_Remains_trophy.png",
         ["Ghost"] = "https://valheim.fandom.com/wiki/Special:FilePath/Ghost_0star.png",
-
+        ["Bjorn"] = "https://static.wikia.nocookie.net/valheim/images/a/a4/Bear.png",
         // Swamp
         ["Draugr"] = "https://valheim.fandom.com/wiki/Special:FilePath/Draugr_trophy.png",
         ["Draugr_Elite"] = "https://valheim.fandom.com/wiki/Special:FilePath/Draugr_Elite_trophy.png",
@@ -48,6 +54,7 @@ public static class Links
         ["GoblinBrute"] = "https://valheim.fandom.com/wiki/Special:FilePath/Fuling_Berserker_trophy.png",
         ["BlobTar"] = "https://valheim.fandom.com/wiki/Special:FilePath/Growth_trophy.png",
         ["GoblinArcher"] = "https://valheim.fandom.com/wiki/Special:FilePath/Fuling_trophy.png",
+        ["Unbjorn"] = "https://static.wikia.nocookie.net/valheim/images/8/88/Vile.png",
 
         // Ocean
         ["Serpent"] = "https://valheim.fandom.com/wiki/Special:FilePath/Serpent_trophy.png",

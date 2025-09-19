@@ -8,7 +8,6 @@ using JetBrains.Annotations;
 using Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.Networking;
-using static DiscordBot.DiscordBotPlugin;
 
 namespace DiscordBot;
 
@@ -20,10 +19,9 @@ public class Discord : MonoBehaviour
         [UsedImplicitly]
         private static void Postfix(ZNet __instance)
         {
-            m_instance.gameObject.AddComponent<Discord>();
+            DiscordBotPlugin.m_instance.gameObject.AddComponent<Discord>();
             if (!__instance.IsServer()) return;
-            if (m_serverStartNotice.Value is Toggle.Off) return;
-            instance.SendStatus(Webhook.Notifications, "$msg_server_start", __instance.GetWorldName(), "$status_launch", new Color(0.4f, 0.98f, 0.24f));
+            if (DiscordBotPlugin.ShowServerStart) instance.SendStatus(Webhook.Notifications, Keys.ServerStart, __instance.GetWorldName(), Keys.Launching, new Color(0.4f, 0.98f, 0.24f));
         }
     }
 
@@ -32,7 +30,7 @@ public class Discord : MonoBehaviour
     public event Action<Message>? OnMessageReceived;
     public event Action<Message>? OnCommandReceived;
     public event Action<Sprite>? OnImageDownloaded;
-    public event Action<AudioClip>? OnAudioDownloaded;
+    public event Action<AudioClip>? OnAudioDownloaded; // not implemented yet
     public event Action<string>? OnError;
     
     private string m_lastMessageID = "";
@@ -44,11 +42,13 @@ public class Discord : MonoBehaviour
 
     private DateTime m_timeLoaded;
 
+    private bool isServer => ZNet.instance?.IsServer() ?? false;
+
     public void Awake()
     {
         instance = this;
         m_timeLoaded = DateTime.UtcNow;
-        if (!ZNet.m_isServer) return;
+        if (!isServer) return;
         // Only server manages polling
         OnMessageReceived += HandleChatMessage;
         OnCommandReceived += HandleCommands;
@@ -58,27 +58,24 @@ public class Discord : MonoBehaviour
 
     private void Start()
     {
-        if (!ZNet.instance || !ZNet.m_isServer) return;
-        if (string.IsNullOrEmpty(m_botToken.Value))
+        if (!isServer) return;
+        if (string.IsNullOrEmpty(DiscordBotPlugin.BOT_TOKEN))
         {
-            DiscordBotLogger.LogWarning("Bot token not set");
+            DiscordBotPlugin.DiscordBotLogger.LogWarning("Bot token not set");
             return;
         }
-        if (!string.IsNullOrEmpty(m_chatChannelID.Value) && m_chatEnabled.Value is Toggle.On) StartPollingChatter();
-        if (!string.IsNullOrEmpty(m_commandChannelID.Value)) StartPollingCommands();
+        if (!string.IsNullOrEmpty(DiscordBotPlugin.ChatChannelID) && DiscordBotPlugin.ShowChat) StartPollingChatter();
+        if (!string.IsNullOrEmpty(DiscordBotPlugin.CommandChannelID)) StartPollingCommands();
 
         SendMessage(Webhook.Commands, ZNet.instance.GetWorldName(), $"{EmojiHelper.Emoji("question")} type `!help` to find list of available commands");
     }
 
-    private void OnDestroy()
-    {
-        StopPolling();
-    }
-
+    private void OnDestroy() => StopPolling();
+    
     private static void HandleError(string message)
     {
-        if (m_logErrors.Value is Toggle.Off) return;
-        DiscordBotLogger.LogWarning(message);
+        if (!DiscordBotPlugin.LogErrors) return;
+        DiscordBotPlugin.LogWarning(message);
     }
 
     private void HandleChatMessage(Message message)
@@ -196,25 +193,25 @@ public class Discord : MonoBehaviour
     #region Sending Messages to Discord
     
     // does not work
-    public void SendComponentMessage(Webhook webhook, string username = "", params EmbedComponent[] components)
-    {
-        var layoutData = new DiscordWebhookComponents(username, components);
-        StartCoroutine(SendLayoutMessage(layoutData, GetWebhookURL(webhook)));
-    }
+    // public void SendComponentMessage(Webhook webhook, string username = "", params EmbedComponent[] components)
+    // {
+    //     DiscordWebhookComponents layoutData = new DiscordWebhookComponents(username, components);
+    //     StartCoroutine(SendLayoutMessage(layoutData, webhook.ToURL()));
+    // }
     
     public void SendMessage(Webhook webhook, string username = "", string message = "")
     {
-        var webhookData = new DiscordWebhookData(username, message);
-        StartCoroutine(SendWebhookMessage(webhookData, GetWebhookURL(webhook)));
+        DiscordWebhookData webhookData = new DiscordWebhookData(username, message);
+        StartCoroutine(SendWebhookMessage(webhookData, webhook.ToURL()));
     }
 
     public void SendEmbedMessage(Webhook webhook, string title, string content, string username = "", string thumbnail = "")
     {
-        var embed = new Embed(title, content);
+        Embed embed = new Embed(title, content);
         embed.AddThumbnail(thumbnail);
         var webhookData = new DiscordWebhookData(username, embed);
 
-        StartCoroutine(SendWebhookMessage(webhookData, GetWebhookURL(webhook)));
+        StartCoroutine(SendWebhookMessage(webhookData, webhook.ToURL()));
     }
     
     public void SendTableEmbed(Webhook webhook, string title, Dictionary<string, string> tableData, string username = "", string thumbnail = "")
@@ -223,34 +220,33 @@ public class Discord : MonoBehaviour
         {
             OnError?.Invoke("Table data is empty");
         }
-        var fields = new List<EmbedField>();
+        List<EmbedField> fields = new List<EmbedField>();
 
         foreach (KeyValuePair<string, string> kvp in tableData)
         {
             fields.Add(new EmbedField(kvp.Key, kvp.Value));
         }
 
-        var embed = new Embed(title, fields);
+        Embed embed = new Embed(title, fields);
         embed.AddThumbnail(thumbnail);
         
-        var webhookData = new DiscordWebhookData(username, embed);
+        DiscordWebhookData webhookData = new DiscordWebhookData(username, embed);
 
-        StartCoroutine(SendWebhookMessage(webhookData, GetWebhookURL(webhook)));
+        StartCoroutine(SendWebhookMessage(webhookData, webhook.ToURL()));
     }
 
     public void SendStatus(Webhook webhook, string content, string worldName, string status, Color color, string username = "", string thumbnail = "")
     {
-        var embed = new Embed(content);
+        Embed embed = new Embed(content);
         embed.SetColor(color);
         List<EmbedField> fields = new();
-        fields.Add(new EmbedField("$label_worldname", worldName));
-        fields.Add(new EmbedField("$label_status", status));
+        fields.Add(new EmbedField(Keys.WorldName, worldName));
+        fields.Add(new EmbedField(Keys.Status, status));
         embed.fields = fields.ToArray();
         embed.AddThumbnail(thumbnail);
-        var webhookData = new DiscordWebhookData(username, embed);
-        StartCoroutine(SendWebhookMessage(webhookData, GetWebhookURL(webhook)));
+        DiscordWebhookData webhookData = new DiscordWebhookData(username, embed);
+        StartCoroutine(SendWebhookMessage(webhookData, webhook.ToURL()));
     }
-
     
     private IEnumerator SendWebhookMessage(DiscordWebhookData data, string webhookURL)
     {
@@ -309,15 +305,15 @@ public class Discord : MonoBehaviour
     
     public void StartPollingChatter()
     {
-        if (m_isPollingChatter || string.IsNullOrEmpty(m_botToken.Value) || string.IsNullOrEmpty(m_chatChannelID.Value)) return;
+        if (m_isPollingChatter || string.IsNullOrEmpty(DiscordBotPlugin.BOT_TOKEN) || string.IsNullOrEmpty(DiscordBotPlugin.ChatChannelID)) return;
         m_isPollingChatter = true;
         StartCoroutine(PollForMessages());
     }
 
     public void StartPollingCommands()
     {
-        if (!m_isPollingCommands && !string.IsNullOrEmpty(m_botToken.Value) &&
-            !string.IsNullOrEmpty(m_commandChannelID.Value))
+        if (!m_isPollingCommands && !string.IsNullOrEmpty(DiscordBotPlugin.BOT_TOKEN) &&
+            !string.IsNullOrEmpty(DiscordBotPlugin.CommandChannelID))
         {
             m_isPollingCommands = true;
             StartCoroutine(PollForCommands());
@@ -335,7 +331,7 @@ public class Discord : MonoBehaviour
         while (m_isPollingChatter)
         {
             yield return StartCoroutine(GetChannelMessages());
-            yield return new WaitForSeconds(m_pollInterval.Value);
+            yield return new WaitForSeconds(DiscordBotPlugin.PollInterval);
         }
     }
 
@@ -344,16 +340,16 @@ public class Discord : MonoBehaviour
         while (m_isPollingCommands)
         {
             yield return StartCoroutine(GetChannelCommands());
-            yield return new WaitForSeconds(m_pollInterval.Value);
+            yield return new WaitForSeconds(DiscordBotPlugin.PollInterval);
         }
     }
 
     private IEnumerator GetChannelCommands()
     {
-        string url = $"https://discord.com/api/v10/channels/{GetChannelID(Channel.Commands)}/messages?limit=1";
+        string url = $"https://discord.com/api/v10/channels/{Channel.Commands.ToID()}/messages?limit=1";
 
         using UnityWebRequest request = UnityWebRequest.Get(url);
-        request.SetRequestHeader("Authorization", $"Bot {m_botToken.Value}");
+        request.SetRequestHeader("Authorization", $"Bot {DiscordBotPlugin.BOT_TOKEN}");
         request.SetRequestHeader("Content-Type", "application/json");
         
         yield return request.SendWebRequest();
@@ -362,12 +358,12 @@ public class Discord : MonoBehaviour
         {
             try
             {
-                var messages = JsonConvert.DeserializeObject<Message[]>(request.downloadHandler.text);
+                Message[]? messages = JsonConvert.DeserializeObject<Message[]>(request.downloadHandler.text);
                 if (messages is not { Length: > 0 }) yield break;
-                var message = messages[0];
+                Message message = messages[0];
                 if (message.author?.bot ?? true) yield break;
 
-                var timeStamp = DateTime.Parse(message.timestamp).ToUniversalTime(); // local time, so convert
+                DateTime timeStamp = DateTime.Parse(message.timestamp).ToUniversalTime(); // local time, so convert
                 if (m_timeLoaded > timeStamp)
                 {
                     yield break;
@@ -391,7 +387,7 @@ public class Discord : MonoBehaviour
 
     private IEnumerator GetChannelMessages()
     {
-        string url = $"https://discord.com/api/v10/channels/{GetChannelID(Channel.Chat)}/messages?limit=10";
+        string url = $"https://discord.com/api/v10/channels/{Channel.Chat.ToID()}/messages?limit=10";
         
         if (!string.IsNullOrEmpty(m_lastMessageID))
         {
@@ -399,7 +395,7 @@ public class Discord : MonoBehaviour
         }
 
         using UnityWebRequest request = UnityWebRequest.Get(url);
-        request.SetRequestHeader("Authorization", $"Bot {m_botToken.Value}");
+        request.SetRequestHeader("Authorization", $"Bot {DiscordBotPlugin.BOT_TOKEN}");
         request.SetRequestHeader("Content-Type", "application/json");
             
         yield return request.SendWebRequest();
@@ -408,12 +404,12 @@ public class Discord : MonoBehaviour
         {
             try
             {
-                var messages = JsonConvert.DeserializeObject<Message[]>(request.downloadHandler.text);
+                Message[]? messages = JsonConvert.DeserializeObject<Message[]>(request.downloadHandler.text);
                 if (messages != null)
                 {
                     for (int i = messages.Length - 1; i >= 0; i--)
                     {
-                        var message = messages[i];
+                        Message message = messages[i];
                         if (message.author?.bot ?? true) continue;
                         if (message.id == null) continue;
                         if (string.IsNullOrEmpty(m_lastMessageID) || 

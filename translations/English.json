@@ -14,5 +14,7 @@
   "status_online" : "Online",
   "status_launch" : "Launching",
   "label_worldname": "World",
-  "label_status" : "Status"
+  "label_status" : "Status",
+  "label_level" : "level",
+  "label_ingame" : "in-game"
 }

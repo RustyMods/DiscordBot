@@ -139,73 +139,106 @@ public class Localizer
                 localizationFiles[key] = file;
             }
         }
-
-        if (LoadTranslationFromAssembly("English") is not { } englishAssemblyData)
+        
+        if (!localizationFiles.TryGetValue("English", out string englishFile))
         {
             throw new Exception(
-                $"Found no English localizations in mod {plugin.Info.Metadata.Name}. Expected an embedded resource translations/English.json.");
+                $"Found no English localizations in mod {plugin.Info.Metadata.Name}. Expected a file like {plugin.Info.Metadata.Name}.English.json or .yml.");
         }
-
-        Dictionary<string, string>? localizationTexts;
-        try
-        {
-            localizationTexts = JsonConvert.DeserializeObject<Dictionary<string, string>>(
-                System.Text.Encoding.UTF8.GetString(englishAssemblyData));
-        }
-        catch (JsonException ex)
-        {
-            throw new Exception(
-                $"Localization for mod {plugin.Info.Metadata.Name} failed: Invalid JSON in English localization file. {ex.Message}");
-        }
-
+        
+        Dictionary<string, string>? localizationTexts = JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(englishFile));
         if (localizationTexts is null)
         {
             throw new Exception(
-                $"Localization for mod {plugin.Info.Metadata.Name} failed: Localization file was empty.");
+                $"Localization for mod {plugin.Info.Metadata.Name} failed: English localization file was empty.");
         }
 
         string? localizationData = null;
-        if (language != "English")
+        if (language != "English" && localizationFiles.TryGetValue(language, out string langFile))
         {
-            if (localizationFiles.ContainsKey(language))
-            {
-                localizationData = File.ReadAllText(localizationFiles[language]);
-            }
-            else if (LoadTranslationFromAssembly(language) is { } languageAssemblyData)
-            {
-                localizationData = System.Text.Encoding.UTF8.GetString(languageAssemblyData);
-            }
-        }
-
-        if (localizationData is null && localizationFiles.ContainsKey("English"))
-        {
-            localizationData = File.ReadAllText(localizationFiles["English"]);
+            localizationData = File.ReadAllText(langFile);
         }
 
         if (localizationData is not null)
         {
-            Dictionary<string, string>? additionalTexts;
-            try
-            {
-                additionalTexts = JsonConvert.DeserializeObject<Dictionary<string, string>>(localizationData);
-            }
-            catch (JsonException ex)
-            {
-                throw new Exception(
-                    $"Localization for mod {plugin.Info.Metadata.Name} failed: Invalid JSON in {language} localization file. {ex.Message}");
-            }
-
-            foreach (KeyValuePair<string, string> kv in additionalTexts ?? new Dictionary<string, string>())
+            foreach (var kv in JsonConvert.DeserializeObject<Dictionary<string, string>>(localizationData) ?? new())
             {
                 localizationTexts[kv.Key] = kv.Value;
             }
         }
-
+        
         loadedTexts[language] = localizationTexts;
-        foreach (KeyValuePair<string, string> s in localizationTexts)
+
+        foreach (var s in localizationTexts)
         {
             UpdatePlaceholderText(__instance, s.Key);
         }
+        // if (LoadTranslationFromAssembly("English") is not { } englishAssemblyData)
+        // {
+        //     throw new Exception(
+        //         $"Found no English localizations in mod {plugin.Info.Metadata.Name}. Expected an embedded resource translations/English.json.");
+        // }
+        //
+        // Dictionary<string, string>? localizationTexts;
+        // try
+        // {
+        //     localizationTexts = JsonConvert.DeserializeObject<Dictionary<string, string>>(
+        //         System.Text.Encoding.UTF8.GetString(englishAssemblyData));
+        // }
+        // catch (JsonException ex)
+        // {
+        //     throw new Exception(
+        //         $"Localization for mod {plugin.Info.Metadata.Name} failed: Invalid JSON in English localization file. {ex.Message}");
+        // }
+        //
+        // if (localizationTexts is null)
+        // {
+        //     throw new Exception(
+        //         $"Localization for mod {plugin.Info.Metadata.Name} failed: Localization file was empty.");
+        // }
+        //
+        // string? localizationData = null;
+        // if (language != "English")
+        // {
+        //     if (localizationFiles.ContainsKey(language))
+        //     {
+        //         localizationData = File.ReadAllText(localizationFiles[language]);
+        //     }
+        //     else if (LoadTranslationFromAssembly(language) is { } languageAssemblyData)
+        //     {
+        //         localizationData = System.Text.Encoding.UTF8.GetString(languageAssemblyData);
+        //     }
+        // }
+        //
+        // if (localizationData is null && localizationFiles.ContainsKey("English"))
+        // {
+        //     localizationData = File.ReadAllText(localizationFiles["English"]);
+        // }
+        //
+        // if (localizationData is not null)
+        // {
+        //     Dictionary<string, string>? additionalTexts;
+        //     try
+        //     {
+        //         additionalTexts = JsonConvert.DeserializeObject<Dictionary<string, string>>(localizationData);
+        //     }
+        //     catch (JsonException ex)
+        //     {
+        //         throw new Exception(
+        //             $"Localization for mod {plugin.Info.Metadata.Name} failed: Invalid JSON in {language} localization file. {ex.Message}");
+        //     }
+        //
+        //     foreach (KeyValuePair<string, string> kv in additionalTexts ?? new Dictionary<string, string>())
+        //     {
+        //         localizationTexts[kv.Key] = kv.Value;
+        //     }
+        // }
+        //
+        // loadedTexts[language] = localizationTexts;
+        // foreach (KeyValuePair<string, string> s in localizationTexts)
+        // {
+        //     UpdatePlaceholderText(__instance, s.Key);
+        // }
     }
 
     static Localizer()

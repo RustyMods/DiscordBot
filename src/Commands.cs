@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using BepInEx.Bootstrap;
 using HarmonyLib;
+using JetBrains.Annotations;
 using UnityEngine;
 
 namespace DiscordBot;
@@ -14,6 +15,7 @@ public static class DiscordCommands
     [HarmonyPatch(typeof(ZNet), nameof(ZNet.OnNewConnection))]
     private static class ZNet_OnNewConnection_Patch
     {
+        [UsedImplicitly]
         private static void Postfix(ZNetPeer peer)
         {
             // Register RPC to clients to receive message from server
@@ -22,7 +24,7 @@ public static class DiscordCommands
     }
     public static readonly Dictionary<string, DiscordCommand> m_commands = new();
     private static readonly List<CommandTooltip> m_tooltips = new();
-
+    public static bool loaded;
     public static void Setup()
     {
         var help = new DiscordCommand("!help", "List of commands", _ =>
@@ -47,10 +49,10 @@ public static class DiscordCommands
 
                     string title = totalEmbeds == 1
                         ? "List of admin commands"
-                        : $"List of admin commands (Part {index + 1} of {totalEmbeds}";
+                        : $"List of admin commands (Part {index + 1} of {totalEmbeds})";
 
                     Discord.instance.SendTableEmbed(
-                        DiscordBotPlugin.Webhook.Commands,
+                        Webhook.Commands,
                         title,
                         chunk);
                 }
@@ -58,7 +60,7 @@ public static class DiscordCommands
             else
             {
                 Discord.instance.SendTableEmbed(
-                    DiscordBotPlugin.Webhook.Commands,
+                    Webhook.Commands,
                     "List of admin commands",
                     adminCommands.ToDictionary(command => command.m_command, command => command.m_description));
             }
@@ -76,7 +78,7 @@ public static class DiscordCommands
                         : $"List of commands (Part {index + 1} of {totalEmbeds}";
 
                     Discord.instance.SendTableEmbed(
-                        DiscordBotPlugin.Webhook.Commands,
+                        Webhook.Commands,
                         title,
                         chunk);
                 }
@@ -84,7 +86,7 @@ public static class DiscordCommands
             else
             {
                 Discord.instance.SendTableEmbed(
-                    DiscordBotPlugin.Webhook.Commands,
+                    Webhook.Commands,
                     "List of commands",
                     otherCommands.ToDictionary(command => command.m_command, command => command.m_description));
             }
@@ -93,38 +95,38 @@ public static class DiscordCommands
         var listAdmins = new DiscordCommand("!listadmins", "List of discord admins registered to plugin", _ =>
         {
             StringBuilder stringBuilder = new StringBuilder();
-            foreach (var username in new DiscordBotPlugin.StringListConfig(DiscordBotPlugin.m_discordAdmins.Value).list)
+            foreach (var username in new DiscordBotPlugin.StringListConfig(DiscordBotPlugin.DiscordAdmins).list)
             {
                 stringBuilder.Append($"`{username}`\n");
             }
-            Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, "List of discord usernames who can use commands:", stringBuilder.ToString());
+            Discord.instance.SendEmbedMessage(Webhook.Commands, "List of discord usernames who can use commands:", stringBuilder.ToString());
         }, emoji: "warning");
         var addDiscordAdmin = new DiscordCommand("!addadmin",
             "Adds discord username to admin list, to enable using commands, `username`",
             args =>
             {
                 if (args.Length < 2) return;
-                var userName = args[1].Trim();
-                var list = new DiscordBotPlugin.StringListConfig(DiscordBotPlugin.m_discordAdmins.Value);
-                list.list.Add(userName);
-                DiscordBotPlugin.m_discordAdmins.Value = list.ToString();
+                string userName = args[1].Trim();
+                DiscordBotPlugin.StringListConfig admins = new DiscordBotPlugin.StringListConfig(DiscordBotPlugin.DiscordAdmins);
+                admins.list.Add(userName);
+                DiscordBotPlugin.SetDiscordAdmins(admins.ToString());
                 listAdmins.Run(new []{"listadmins"});
             }, adminOnly: true, emoji: "key");
         var removeDiscordAdmin = new DiscordCommand("!removeadmin",
             "Remove discord username from admin list, to disable using commands, `username`",
             args =>
             {
-                var userName = args[1].Trim();
-                var list = new DiscordBotPlugin.StringListConfig(DiscordBotPlugin.m_discordAdmins.Value);
-                list.list.Remove(userName);
-                DiscordBotPlugin.m_discordAdmins.Value = list.ToString();
+                string userName = args[1].Trim();
+                DiscordBotPlugin.StringListConfig admins = new DiscordBotPlugin.StringListConfig(DiscordBotPlugin.DiscordAdmins);
+                admins.list.Remove(userName);
+                DiscordBotPlugin.SetDiscordAdmins(admins.ToString());
                 listAdmins.Run(new []{"listadmins"});
             }, adminOnly: true, emoji: "lock");
         var listEnv = new DiscordCommand("!listenv", "List of available environments", _ =>
         {
             StringBuilder stringBuilder = new StringBuilder();
             foreach (var env in EnvMan.instance.m_environments) stringBuilder.Append($"`{env.m_name}`\n");
-            Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, "List of available environments:", stringBuilder.ToString());
+            Discord.instance.SendEmbedMessage(Webhook.Commands, "List of available environments:", stringBuilder.ToString());
         }, emoji: "tornado");
         var forceEnv = new DiscordCommand("!env", "Force environment on all players", args =>
             {
@@ -143,7 +145,7 @@ public static class DiscordCommands
                 }
                 else
                 {
-                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message:
+                    Discord.instance.SendMessage(Webhook.Commands, message:
                         "Failed to find environment: " + environment);
                 }
             }, pkg =>
@@ -167,7 +169,7 @@ public static class DiscordCommands
             {
                 content[player.m_name] = $"Position: `{player.m_position.x} {player.m_position.y} {player.m_position.z}`";
             }
-            Discord.instance.SendTableEmbed(DiscordBotPlugin.Webhook.Commands, "List of active players", content);
+            Discord.instance.SendTableEmbed(Webhook.Commands, "List of active players", content);
         }, adminOnly: true, emoji:"dragon");
 
         var kick = new DiscordCommand("!kick", "Kicks player from server, `playername`", args =>
@@ -176,12 +178,12 @@ public static class DiscordCommands
             var playerName = args[1].Trim();
             if (ZNet.instance.GetPeerByPlayerName(playerName) is not { } peer)
             {
-                Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message: "Failed to find " + playerName);
+                Discord.instance.SendMessage(Webhook.Commands, message: "Failed to find " + playerName);
             }
             else
             {
                 ZNet.instance.Disconnect(peer);
-                Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message: $"Kicked {playerName} from server !");
+                Discord.instance.SendMessage(Webhook.Commands, message: $"Kicked {playerName} from server !");
             }
         }, adminOnly:true, emoji:"x");
 
@@ -211,7 +213,7 @@ public static class DiscordCommands
             }
             else
             {
-                Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message: "Failed to find " + playerName);
+                Discord.instance.SendMessage(Webhook.Commands, message: "Failed to find " + playerName);
             }
         }, pkg =>
         {
@@ -241,7 +243,7 @@ public static class DiscordCommands
                 }
                 else
                 {
-                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message: "Incorrect teleport all command format");
+                    Discord.instance.SendMessage(Webhook.Commands, message: "Incorrect teleport all command format");
                 }
             }, adminOnly: true, emoji:"golf");
 
@@ -266,7 +268,7 @@ public static class DiscordCommands
                 }
                 else
                 {
-                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message: "Failed to find " + playerName);
+                    Discord.instance.SendMessage(Webhook.Commands, message: "Failed to find " + playerName);
                 }
             }
             else
@@ -286,7 +288,7 @@ public static class DiscordCommands
                 }
                 else
                 {
-                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message: "Incorrect teleport command format");
+                    Discord.instance.SendMessage(Webhook.Commands, message: "Incorrect teleport command format");
                     return;
                 }
                 
@@ -304,7 +306,7 @@ public static class DiscordCommands
                 }
                 else
                 {
-                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message: "Failed to find " + playerName);
+                    Discord.instance.SendMessage(Webhook.Commands, message: "Failed to find " + playerName);
                 }
             }
         }, pkg =>
@@ -333,15 +335,15 @@ public static class DiscordCommands
             {
                 if (!float.TryParse(args[3].Trim(), out float x) || !float.TryParse(args[4].Trim(), out float y) || !float.TryParse(args[5].Trim(), out float z))
                 {
-                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message: "Incorrect spawn command format");
+                    Discord.instance.SendMessage(Webhook.Commands, message: "Incorrect spawn command format");
                 }
                 else if (!ZoneSystem.instance.IsZoneLoaded(new Vector3(x, y, z)))
                 {
-                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message: "Failed to spawn, location zone is not loaded!");
+                    Discord.instance.SendMessage(Webhook.Commands, message: "Failed to spawn, location zone is not loaded!");
                 }
                 else if (!Spawn(prefabName, level, new Vector3(x, y, z)))
                 {
-                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message: "Failed to spawn: " + prefabName);
+                    Discord.instance.SendMessage(Webhook.Commands, message: "Failed to spawn: " + prefabName);
                 }
             }
             else
@@ -352,7 +354,7 @@ public static class DiscordCommands
                 {
                     if (!Spawn(prefabName, level, Player.m_localPlayer.transform.position))
                     {
-                        Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message: "Failed to spawn: " + prefabName);
+                        Discord.instance.SendMessage(Webhook.Commands, message: "Failed to spawn: " + prefabName);
                     }
                 }
                 else if (ZNet.instance.GetPeerByPlayerName(playerName) is {} peer)
@@ -365,7 +367,7 @@ public static class DiscordCommands
                 }
                 else
                 {
-                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message: "Failed to find " + playerName);
+                    Discord.instance.SendMessage(Webhook.Commands, message: "Failed to find " + playerName);
                 }
             }
             
@@ -430,7 +432,7 @@ public static class DiscordCommands
             {
                 stringBuilder.Append($"`{key}`\n");
             }
-            Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, "Global keys:", stringBuilder.ToString());
+            Discord.instance.SendEmbedMessage(Webhook.Commands, "Global keys:", stringBuilder.ToString());
         }, emoji: "fox");
 
         var currentKeys = new DiscordCommand("!keys", "List of current global keys", _ =>
@@ -440,7 +442,7 @@ public static class DiscordCommands
             {
                 stringBuilder.Append($"`{key}`\n");
             }
-            Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, "Active keys:", stringBuilder.ToString());
+            Discord.instance.SendEmbedMessage(Webhook.Commands, "Active keys:", stringBuilder.ToString());
         }, emoji:"game");
 
         var setKey = new DiscordCommand("!setkey", "Set global key", args =>
@@ -449,7 +451,7 @@ public static class DiscordCommands
             var key = args[1].Trim();
             if (!Enum.TryParse(key, true, out GlobalKeys globalKey))
             {
-                Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message : "Failed to find global key: " + key);
+                Discord.instance.SendMessage(Webhook.Commands, message : "Failed to find global key: " + key);
             }
             else
             {
@@ -463,7 +465,7 @@ public static class DiscordCommands
                 var key = args[1].Trim();
                 if (!Enum.TryParse(key, true, out GlobalKeys globalKey))
                 {
-                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message: "Failed to find global key: " + key);
+                    Discord.instance.SendMessage(Webhook.Commands, message: "Failed to find global key: " + key);
                 }
                 else
                 {
@@ -481,7 +483,7 @@ public static class DiscordCommands
                 {
                     stringBuilder.Append($"`{prefab.name}`\n");
                 }
-                Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, "Prefab Names:", stringBuilder.ToString());
+                Discord.instance.SendEmbedMessage(Webhook.Commands, "Prefab Names:", stringBuilder.ToString());
             }, adminOnly: true, emoji: "fire");
 
         var eventList = new DiscordCommand("!listevents", "List of available event names", _ =>
@@ -491,7 +493,7 @@ public static class DiscordCommands
             {
                 stringBuilder.Append($"`{randomEvent.m_name}`\n");
             }
-            Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, "Available events:", stringBuilder.ToString());
+            Discord.instance.SendEmbedMessage(Webhook.Commands, "Available events:", stringBuilder.ToString());
         }, adminOnly: true, emoji:"moon");
 
         var startEvent = new DiscordCommand("!event", "Starts an event on a player, `event name` `player name`", args =>
@@ -509,7 +511,7 @@ public static class DiscordCommands
             {
                 if (ZNet.instance.GetPeerByPlayerName(playerName) is not { } peer)
                 {
-                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message: "Failed to find " + playerName);
+                    Discord.instance.SendMessage(Webhook.Commands, message: "Failed to find " + playerName);
                     return;
                 }
 
@@ -518,7 +520,7 @@ public static class DiscordCommands
             
             if (RandEventSystem.instance.GetEvent(eventName) is not {} randEvent)
             {
-                Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message: "Failed to find event: " + eventName);
+                Discord.instance.SendMessage(Webhook.Commands, message: "Failed to find event: " + eventName);
                 return;
             }
             RandEventSystem.instance.SetRandomEvent(randEvent, pos);
@@ -527,7 +529,7 @@ public static class DiscordCommands
         {
             StringBuilder stringBuilder = new StringBuilder();
             foreach (var status in ObjectDB.instance.m_StatusEffects) stringBuilder.Append($"`{status.name}`\n");
-            Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, "Available status effects:", stringBuilder.ToString());
+            Discord.instance.SendEmbedMessage(Webhook.Commands, "Available status effects:", stringBuilder.ToString());
         }, emoji: "rocket");
         var addStatus = new DiscordCommand("!addstatus", "Add status effect on player, `player name` `status effect` `duration`", args =>
             {
@@ -538,7 +540,7 @@ public static class DiscordCommands
 
                 if (ObjectDB.instance.GetStatusEffect(statusName.GetStableHashCode()) is not { } statusEffect)
                 {
-                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message : "Failed to find status effect: " + statusName);
+                    Discord.instance.SendMessage(Webhook.Commands, message : "Failed to find status effect: " + statusName);
                 }
                 else
                 {
@@ -557,7 +559,7 @@ public static class DiscordCommands
                     }
                     else
                     {
-                        Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message: "Failed to find " + playerName);
+                        Discord.instance.SendMessage(Webhook.Commands, message: "Failed to find " + playerName);
                     }
                 }
             }, pkg =>
@@ -587,7 +589,7 @@ public static class DiscordCommands
                 }
                 else
                 {
-                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message: "Failed to find player: " + playerName);
+                    Discord.instance.SendMessage(Webhook.Commands, message: "Failed to find player: " + playerName);
                 }
 
             },
@@ -617,7 +619,7 @@ public static class DiscordCommands
                 }
                 else
                 {
-                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message: "Failed to find player: " + playerName);
+                    Discord.instance.SendMessage(Webhook.Commands, message: "Failed to find player: " + playerName);
                 }
             }, _ =>
             {
@@ -630,8 +632,8 @@ public static class DiscordCommands
         var listSkills = new DiscordCommand("!listskills", "List of available skills", args =>
         {
             StringBuilder stringBuilder = new StringBuilder();
-            foreach (var skill in Enum.GetValues(typeof(Skills.SkillType))) stringBuilder.Append($"{Formatting.Format(skill.ToString(), Formatting.TextFormat.InlineCode)}" + "\n");
-            Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, "Available skill types:", stringBuilder.ToString(), ZNet.instance.GetWorldName());
+            foreach (var skill in Enum.GetValues(typeof(Skills.SkillType))) stringBuilder.Append($"{skill.ToString().Format(TextFormat.InlineCode)}" + "\n");
+            Discord.instance.SendEmbedMessage(Webhook.Commands, "Available skill types:", stringBuilder.ToString(), ZNet.instance.GetWorldName());
         }, emoji: "pray");
         var raiseSkill = new DiscordCommand("!raiseskill",
             "Raises skill level, `player name` `stkill type` `amount`",
@@ -643,7 +645,7 @@ public static class DiscordCommands
                 var amount = float.TryParse(args[3].Trim(), out float skillAmount) ? skillAmount : 1f;
                 if (!Enum.TryParse(skillType, out Skills.SkillType type))
                 {
-                    Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message: "Failed to find skill type: " + skillType);
+                    Discord.instance.SendMessage(Webhook.Commands, message: "Failed to find skill type: " + skillType);
                 }
                 else
                 {
@@ -661,7 +663,7 @@ public static class DiscordCommands
                     }
                     else
                     {
-                        Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message: "Failed to find player: " + playerName);
+                        Discord.instance.SendMessage(Webhook.Commands, message: "Failed to find player: " + playerName);
                     }
                 }
             }, pkg =>
@@ -686,11 +688,11 @@ public static class DiscordCommands
             }
             else
             {
-                Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message: "Failed to find player: " + playerName);
+                Discord.instance.SendMessage(Webhook.Commands, message: "Failed to find player: " + playerName);
                 return;
             }
             
-            Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message: $"{playerName} position: {pos.x},{pos.y},{pos.z}");
+            Discord.instance.SendMessage(Webhook.Commands, message: $"{playerName} position: {pos.x},{pos.y},{pos.z}");
             
         }, adminOnly: true, emoji: "rose");
         var stats = new DiscordCommand("!stats", "Player stats, player must be online, `player name`", args =>
@@ -706,10 +708,10 @@ public static class DiscordCommands
                     if (kvp.Value > 0f)
                     {
                         stringBuilder.Append(
-                            $"{Formatting.Format(kvp.Key.ToString(), Formatting.TextFormat.Bold)}: {Formatting.Format(kvp.Value.ToString("0.0"), Formatting.TextFormat.InlineCode)}\n");
+                            $"{kvp.Key.ToString().Format(TextFormat.Bold)}: {kvp.Value.ToString("0.0").Format(TextFormat.InlineCode)}\n");
                     }
                 }
-                Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, $"{playerName} Stats", stringBuilder.ToString());
+                Discord.instance.SendEmbedMessage(Webhook.Commands, $"{playerName} Stats", stringBuilder.ToString());
             } 
             else if (ZNet.instance.GetPeerByPlayerName(playerName) is { } peer)
             {
@@ -719,7 +721,7 @@ public static class DiscordCommands
             }
             else
             {
-                Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message: "Failed to find player: " + playerName);
+                Discord.instance.SendMessage(Webhook.Commands, message: "Failed to find player: " + playerName);
             }
         }, _ =>
         {
@@ -731,10 +733,10 @@ public static class DiscordCommands
                 if (kvp.Value > 0f)
                 {
                     stringBuilder.Append(
-                        $"{Formatting.Format(kvp.Key.ToString(), Formatting.TextFormat.Bold)}: {Formatting.Format(kvp.Value.ToString("0.0"), Formatting.TextFormat.InlineCode)}\n");
+                        $"{kvp.Key.ToString().Format(TextFormat.Bold)}: {kvp.Value.ToString("0.0").Format(TextFormat.InlineCode)}\n");
                 }
             }
-            Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, $"{profile.m_playerName} Stats", stringBuilder.ToString());
+            Discord.instance.SendEmbedMessage(Webhook.Commands, $"{profile.m_playerName} Stats", stringBuilder.ToString());
         },emoji: "wine");
 
         var mods = new DiscordCommand("!mods", "List of plugin installed, `player name?`", args =>
@@ -749,7 +751,7 @@ public static class DiscordCommands
                         {
                             stringBuilder.Append($"{plugin.Value.Metadata.Name}-{plugin.Value.Metadata.Version}\n");
                         }
-                        Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, $"{playerName} installed plugins", stringBuilder.ToString());
+                        Discord.instance.SendEmbedMessage(Webhook.Commands, $"{playerName} installed plugins", stringBuilder.ToString());
                     }
                     else if (ZNet.instance.GetPeerByPlayerName(playerName) is { } peer)
                     {
@@ -759,7 +761,7 @@ public static class DiscordCommands
                     }
                     else
                     {
-                        Discord.instance.SendMessage(DiscordBotPlugin.Webhook.Commands, message: "Failed to find player: " + playerName);
+                        Discord.instance.SendMessage(Webhook.Commands, message: "Failed to find player: " + playerName);
                     }
                 }
                 else
@@ -769,7 +771,7 @@ public static class DiscordCommands
                     {
                         stringBuilder.Append($"{plugin.Value.Metadata.Name}-{plugin.Value.Metadata.Version}\n");
                     }
-                    Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, "Server installed plugins", stringBuilder.ToString());
+                    Discord.instance.SendEmbedMessage(Webhook.Commands, "Server installed plugins", stringBuilder.ToString());
                 }
             },
             pkg =>
@@ -779,17 +781,20 @@ public static class DiscordCommands
                 {
                     stringBuilder.Append($"{plugin.Value.Metadata.Name}-{plugin.Value.Metadata.Version}\n");
                 }
-                Discord.instance.SendEmbedMessage(DiscordBotPlugin.Webhook.Commands, $"{Game.instance.GetPlayerProfile().m_playerName} installed plugins", stringBuilder.ToString());
+                Discord.instance.SendEmbedMessage(Webhook.Commands, $"{Game.instance.GetPlayerProfile().m_playerName} installed plugins", stringBuilder.ToString());
             }, emoji: "guitar");
+        
+        loaded = true;
+        foreach(var externalCommands in API.m_queue) externalCommands.Invoke(); // for some reason, just directly adding commands removes !help command.
     }
     
     public static bool Spawn(string prefabName, int level, Vector3 pos)
     {
         if (!ZNetScene.instance) return false;
         if (ZNetScene.instance.GetPrefab(prefabName) is not { } prefab) return false;
-        var random = (UnityEngine.Random.insideUnitSphere * 5f) with { y = 0.0f };
-        var location = pos + random;
-        var gameObject = UnityEngine.Object.Instantiate(prefab, location, Quaternion.identity);
+        Vector3 random = (UnityEngine.Random.insideUnitSphere * 5f) with { y = 0.0f };
+        Vector3 location = pos + random;
+        GameObject? gameObject = UnityEngine.Object.Instantiate(prefab, location, Quaternion.identity);
         if (gameObject.TryGetComponent(out Character character)) character.SetLevel(level);
         return true;
     }
@@ -797,16 +802,7 @@ public static class DiscordCommands
     public static bool GiveItem(string itemName, int amount, int quality, int variant)
     {
         if (!Player.m_localPlayer || !ObjectDB.instance) return false;
-        if (ObjectDB.instance.GetItemPrefab(itemName) is not { } itemPrefab || !itemPrefab.TryGetComponent(out ItemDrop component)) return false;
-        
-        var itemData = component.m_itemData.Clone();
-        itemData.m_dropPrefab = itemPrefab;
-        itemData.m_stack = amount;
-        itemData.m_quality = quality;
-        itemData.m_variant = variant;
-
-        Player.m_localPlayer.GetInventory().AddItem(itemData);
-        return true;
+        return Player.m_localPlayer.GetInventory().AddItem(itemName, amount, quality, variant, 0L, "") != null;
     }
 
     public static void RPC_BotToClient(ZRpc rpc, ZPackage pkg)
@@ -817,34 +813,33 @@ public static class DiscordCommands
         if (!m_commands.TryGetValue(commandKey, out DiscordCommand command)) return;
         command.Run(pkg);
     }
-    
     public class DiscordCommand
     {
         [Description("Action runs when Discord component receives a new command")]
-        private readonly Action<string[]> m_action;
+        private readonly Action<string[]>? action;
         [Description("Action runs when player receives package from RPC_BotToClient")]
-        private readonly Action<ZPackage>? m_reaction;
+        private readonly Action<ZPackage>? reaction;
         [Description("If only discord admins are allowed to run command")]
-        private readonly bool m_adminOnly;
+        private readonly bool adminOnly;
 
         [Description("Register a new discord command")]
-        public DiscordCommand(string command, string description, Action<string[]> action, Action<ZPackage>? reaction = null, bool adminOnly = false, bool isSecret = false, string emoji = "")
+        public DiscordCommand(string command, string description, Action<string[]>? action, Action<ZPackage>? reaction = null, bool adminOnly = false, bool isSecret = false, string emoji = "")
         {
-            m_action = action;
-            m_reaction = reaction;
-            m_adminOnly = adminOnly;
+            this.action = action;
+            this.reaction = reaction;
+            this.adminOnly = adminOnly;
             m_commands[command] = this;
             if (!isSecret)
             {
-                var tooltip = new CommandTooltip(command, description, adminOnly, emoji);
+                _ = new CommandTooltip(command, description, adminOnly, emoji);
             }       
         }
 
-        public bool IsAllowed(string discordUserName) => !m_adminOnly || new DiscordBotPlugin.StringListConfig(DiscordBotPlugin.m_discordAdmins.Value).list.Contains(discordUserName);
+        public bool IsAllowed(string discordUserName) => !adminOnly || new DiscordBotPlugin.StringListConfig(DiscordBotPlugin.DiscordAdmins).list.Contains(discordUserName);
         
-        public void Run(string[] args) => m_action.Invoke(args);
+        public void Run(string[] args) => action?.Invoke(args);
 
-        public void Run(ZPackage pkg) => m_reaction?.Invoke(pkg);
+        public void Run(ZPackage pkg) => reaction?.Invoke(pkg);
     }
 
     public class CommandTooltip

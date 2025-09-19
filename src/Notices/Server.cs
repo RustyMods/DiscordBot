@@ -1,7 +1,6 @@
 ﻿using HarmonyLib;
 using JetBrains.Annotations;
 using UnityEngine;
-using static DiscordBot.DiscordBotPlugin;
 
 namespace DiscordBot.Notices;
 
@@ -13,9 +12,9 @@ public static class Server
         [UsedImplicitly]
         private static void Postfix(ZNet __instance)
         {
-            if (m_serverSaveNotice.Value is Toggle.Off) return;
+            if (!DiscordBotPlugin.ShowServerSave) return;
             if (!__instance.IsServer()) return;
-            Discord.instance.SendStatus(Webhook.Notifications, "$msg_server_saving", __instance.GetWorldName(), "$status_saving", new Color(0.4f, 0.98f, 0.24f));
+            Discord.instance.SendStatus(Webhook.Notifications, Keys.ServerSaving, __instance.GetWorldName(), Keys.Saving, new Color(0.4f, 0.98f, 0.24f));
         }
     }
 
@@ -25,9 +24,9 @@ public static class Server
         [UsedImplicitly]
         private static void Prefix(ZNet __instance)
         {
-            if (m_serverStopNotice.Value is Toggle.Off) return;
+            if (!DiscordBotPlugin.ShowServerStop) return;
             if (!__instance.IsServer()) return;
-            Discord.instance.SendStatus(Webhook.Notifications, "$msg_server_stop", __instance.GetWorldName(), "$status_offline", new Color(1f, 0.2f, 0f, 1f));
+            Discord.instance.SendStatus(Webhook.Notifications, Keys.ServerStop, __instance.GetWorldName(), Keys.Offline, new Color(1f, 0.2f, 0f, 1f));
         }
     }
 
@@ -38,21 +37,20 @@ public static class Server
         private static void Postfix(ZNet __instance, ZRpc rpc)
         {
             if (!__instance.IsServer()) return;
-            if (m_loginNotice.Value is Toggle.Off || __instance.GetPeer(rpc) is not { } peer || !__instance.IsConnected(peer.m_uid)) return;
-            Discord.instance.SendMessage(Webhook.Notifications, message: $"{peer.m_playerName} $label_has_joined");
+            if (!DiscordBotPlugin.ShowOnLogin || __instance.GetPeer(rpc) is not { } peer || !__instance.IsConnected(peer.m_uid)) return;
+            Discord.instance.SendMessage(Webhook.Notifications, message: $"{peer.m_playerName} {Keys.HasJoined}");
         }
     }
     
-    [HarmonyPatch(typeof(ZNet), nameof(ZNet.RPC_Disconnect))]
-    private static class ZNet_RPC_Disconnect_Patch
+    [HarmonyPatch(typeof(ZNet), nameof(ZNet.Disconnect))]
+    private static class ZNet_Disconnect_Patch
     {
         [UsedImplicitly]
-        private static void Prefix(ZNet __instance, ZRpc rpc)
+        private static void Prefix(ZNet __instance, ZNetPeer peer)
         {
-            if (m_logoutNotice.Value is Toggle.Off) return;
+            if (!DiscordBotPlugin.ShowOnLogout) return;
             if (!__instance.IsServer()) return;
-            if (__instance.GetPeer(rpc) is not { } peer) return;
-            Discord.instance.SendMessage(Webhook.Notifications, message: $"{peer.m_playerName} $label_has_left");
+            Discord.instance.SendMessage(Webhook.Notifications, message: $"{peer.m_playerName} {Keys.HasLeft}");
         }
     }
 }

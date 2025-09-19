@@ -14,11 +14,40 @@ using UnityEngine;
 
 namespace DiscordBot
 {
+    public static class Extensions
+    {
+        public static string ToURL(this Webhook type) => type switch
+        {
+            Webhook.Chat => DiscordBotPlugin.ChatWebhookURL,
+            Webhook.Notifications => DiscordBotPlugin.NoticeWebhookURL,
+            Webhook.Commands =>DiscordBotPlugin.CommandWebhookURL,
+            _ => DiscordBotPlugin.ChatWebhookURL
+        };
+
+        public static string ToID(this Channel type) => type switch
+        {
+            Channel.Chat => DiscordBotPlugin.ChatChannelID,
+            Channel.Commands => DiscordBotPlugin.CommandChannelID,
+            _ => DiscordBotPlugin.ChatChannelID,
+        };
+            
+    }
+    public enum Toggle { On = 1, Off = 0 }
+
+    public enum Webhook
+    {
+        Notifications, 
+        Chat, 
+        Commands
+    }
+    public enum Channel { Chat, Commands }
+    public enum ChatDisplay { Player, Bot }
+    
     [BepInPlugin(ModGUID, ModName, ModVersion)]
     public class DiscordBotPlugin : BaseUnityPlugin
     {
         internal const string ModName = "DiscordBot";
-        internal const string ModVersion = "1.0.0";
+        internal const string ModVersion = "1.0.1";
         internal const string Author = "RustyMods";
         private const string ModGUID = Author + "." + ModName;
         private static readonly string ConfigFileName = ModGUID + ".cfg";
@@ -28,55 +57,60 @@ namespace DiscordBot
         public static readonly ManualLogSource DiscordBotLogger = BepInEx.Logging.Logger.CreateLogSource(ModName);
         private static readonly ConfigSync ConfigSync = new(ModGUID) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
         private static ConfigEntry<Toggle> _serverConfigLocked = null!;
-        public enum Toggle { On = 1, Off = 0 }
-        public enum Webhook { Notifications, Chat, Commands }
-        public enum Channel { Chat, Commands }
-        
-        public enum ChatDisplay { Player, Bot }
 
+        public static Dir directory = new(Paths.ConfigPath, "DiscordBot");
+        
         public static DiscordBotPlugin m_instance = null!;
         
-        public static ConfigEntry<string> m_notificationWebhookURL = null!;
-        public static ConfigEntry<Toggle> m_serverStartNotice = null!;
-        public static ConfigEntry<Toggle> m_serverStopNotice = null!;
-        public static ConfigEntry<Toggle> m_serverSaveNotice = null!;
-        public static ConfigEntry<Toggle> m_deathNotice = null!;
-        public static ConfigEntry<Toggle> m_loginNotice = null!;
-        public static ConfigEntry<Toggle> m_logoutNotice = null!;
+        private static ConfigEntry<string> m_notificationWebhookURL = null!;
+        private static ConfigEntry<Toggle> m_serverStartNotice = null!;
+        private static ConfigEntry<Toggle> m_serverStopNotice = null!;
+        private static ConfigEntry<Toggle> m_serverSaveNotice = null!;
+        private static ConfigEntry<Toggle> m_deathNotice = null!;
+        private static ConfigEntry<Toggle> m_loginNotice = null!;
+        private static ConfigEntry<Toggle> m_logoutNotice = null!;
 
-        public static ConfigEntry<string> m_chatWebhookURL = null!;
-        public static ConfigEntry<string> m_chatChannelID = null!;
-        public static ConfigEntry<Toggle> m_chatEnabled = null!;
-        public static ConfigEntry<ChatDisplay> m_chatType = null!;
+        private static ConfigEntry<string> m_chatWebhookURL = null!;
+        private static ConfigEntry<string> m_chatChannelID = null!;
+        private static ConfigEntry<Toggle> m_chatEnabled = null!;
+        private static ConfigEntry<ChatDisplay> m_chatType = null!;
 
-        public static ConfigEntry<string> m_commandWebhookURL = null!;
-        public static ConfigEntry<string> m_commandChannelID = null!;
-        public static ConfigEntry<int> m_pollInterval = null!;
+        private static ConfigEntry<string> m_commandWebhookURL = null!;
+        private static ConfigEntry<string> m_commandChannelID = null!;
+        private static ConfigEntry<int> m_pollInterval = null!;
 
-        public static ConfigEntry<string> m_discordAdmins = null!;
-        public static ConfigEntry<Toggle> m_logErrors = null!;
+        private static ConfigEntry<string> m_discordAdmins = null!;
+        private static ConfigEntry<Toggle> m_logErrors = null!;
 
-        public static ConfigEntry<string> m_botToken = null!;
+        private static ConfigEntry<string> m_botToken = null!;
 
-        public static string GetWebhookURL(Webhook type) => type switch
-        {
-            Webhook.Chat => m_chatWebhookURL.Value,
-            Webhook.Notifications => m_notificationWebhookURL.Value,
-            Webhook.Commands => m_commandWebhookURL.Value,
-            _ => m_chatWebhookURL.Value
-        };
+        public static bool ShowServerStart => m_serverStartNotice.Value is Toggle.On;
+        public static bool ShowChat => m_chatEnabled.Value is Toggle.On;
+        public static bool LogErrors => m_logErrors.Value is Toggle.On;
+        public static bool ShowServerStop => m_serverStopNotice.Value is Toggle.On;
+        public static bool ShowServerSave => m_serverSaveNotice.Value is Toggle.On;
+        public static bool ShowOnDeath => m_deathNotice.Value is Toggle.On;
+        public static bool ShowOnLogin => m_loginNotice.Value is Toggle.On;
+        public static bool ShowOnLogout => m_logoutNotice.Value is Toggle.On;
+        public static ChatDisplay ChatType => m_chatType.Value;
+        public static int PollInterval => m_pollInterval.Value;
+        public static string DiscordAdmins => m_discordAdmins.Value;
+        public static void SetDiscordAdmins(string value) => m_discordAdmins.Value = value;
+        public static string BOT_TOKEN => m_botToken.Value;
+        public static string ChatChannelID => m_chatChannelID.Value;
+        public static string CommandChannelID => m_commandChannelID.Value;
+        public static string ChatWebhookURL => m_chatWebhookURL.Value;
+        public static string CommandWebhookURL => m_commandWebhookURL.Value;
+        public static string NoticeWebhookURL => m_notificationWebhookURL.Value;
+        
+        public static void LogWarning(string message) => DiscordBotLogger.LogWarning(message);
 
-        public static string GetChannelID(Channel type) => type switch
-        {
-            Channel.Chat => m_chatChannelID.Value,
-            Channel.Commands => m_commandChannelID.Value,
-            _ => m_chatChannelID.Value
-        };
         
         // TODO : Figure out to make sure connecting peer is connecting to the right server
 
         public void Awake()
         {
+            Keys.Write();
             Localizer.Load();
             m_instance = this;
             _serverConfigLocked = config("1 - General", "Lock Configuration", Toggle.On, "If on, the configuration is locked and can be changed by server admins only.");
@@ -107,6 +141,7 @@ namespace DiscordBot
             m_botToken = config("5 - Setup", "BOT TOKEN", "", "Add bot token here, server only", false);
             
             DiscordCommands.Setup();
+            
 
             Assembly assembly = Assembly.GetExecutingAssembly();
             _harmony.PatchAll(assembly);

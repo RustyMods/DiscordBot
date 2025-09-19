@@ -1,6 +1,6 @@
 # Discord Bot Plugin for Valheim
 
-A BepInEx plugin that enables two-way communication between your Valheim server and Discord channels.
+Enables two-way communication between your Valheim server and Discord channels.
 
 ## Features
 
@@ -13,6 +13,7 @@ A BepInEx plugin that enables two-way communication between your Valheim server 
 
 - **BepInEx** installed on your Valheim server
 - **Discord Webhooks** configured for your server
+- **Discord Bot Token** (If you want your discord server to be able to send messages into your game)
 
 ## Installation
 
@@ -24,25 +25,31 @@ If you haven't already installed BepInEx:
 2. Extract the contents to your Valheim server directory
 3. Run the server once to generate BepInEx folders
 
-### 2. Install the Discord Bot Plugin
+### 2. Discord Setup
 
-1. Download the latest release of the Discord Bot plugin
-2. Place the `.dll` file in your `BepInEx/plugins/` folder
-3. Restart your Valheim server
+### How to create Discord Bot
 
-### 3. Configure the Plugin
-
-After first run, configuration files will be generated in `BepInEx/config/`. Edit the Discord Bot config file to set up your:
-
-- Channel IDs
-- Webhook URLs
-- Polling intervals
-- 
-## Discord Setup
-
-### Inviting ValheimBot
-
-https://discord.com/oauth2/authorize?client_id=1404674427169275955&permissions=274877987840&integration_type=0&scope=bot
+1. Create a Discord Application
+    - Go to the [Discord Developer Portal](https://discord.com/developers/applications)
+    - Click "New Application" (top-right)
+    - Give your application a name (e.g. ValheimBot) and click "Create".
+2. Add a Bot to the Application
+    - In the left sidebar, click "Bot"
+    - Click "Add Bot" ----> confirm by clicking "Yes, do it!"
+    - You now have a bot user attached to your application.
+3. Copy the Bot Token
+    - On the Bot page, under the "Token" section, click "Reset Token" (or "Copy" if it is already shown).
+    - Confirm, then copy the generated token.
+    - Keep this token secret!, if it leaks, click "Reset Token" to generate a new one
+4. Invite the Bot to your Server
+    - In the sidebar, click "O2Auth2" ----> "URL Generator".
+    - Under **SCOPES**, check `bot`
+    - Under **BOT PERMISSIONS**, check the permissions your bot will need
+        - Send Messages
+        - Read Message History
+        - View Channels
+    - Copy the generated URL at the bottom
+    - Open that URL in your browser and invite the bot to your Discord server
 
 ### Creating Discord Webhooks
 
@@ -70,6 +77,15 @@ You'll need Discord Channel IDs for the bot to read messages:
     - Right-click on each channel you want to use
     - Select "Copy ID"
     - Save these IDs for your configuration
+
+### 3. Configure the Plugin
+
+After first run, configuration files will be generated in `BepInEx/config/`. Edit the Discord Bot config file to set up your:
+
+- Channel IDs
+- Webhook URLs
+- Polling intervals
+- Bot Token [SERVER ONLY]
 
 ## Configurations
 
@@ -130,6 +146,10 @@ Channel ID = 1106947857194165898
 
 ## List of discord admins, who can run commands [Synced with Server]
 Discord Admin = .rusty,.warp
+
+[5 - Setup]
+## Add bot token here, server only
+BOT TOKEN = 
 
 
 ```
@@ -205,9 +225,9 @@ Send commands in your designated command channel:
 ### 🏃 `teleport` **[Admin Only]**
 **Description:** Teleport player to location, bed, or another player  
 **Usage:**
-- `!teleport <string:PlayerName> bed` - Teleport to bed
-- `!teleport <string:PlayerName> <string:OtherPlayerName>` - Teleport to another player
-- `!teleport <string:PlayerName> <float:x> <float:y> <float:z>` - Teleport to coordinates
+- `teleport <string:PlayerName> bed` - Teleport to bed
+- `teleport <string:PlayerName> <string:OtherPlayerName>` - Teleport to another player
+- `teleport <string:PlayerName> <float:x> <float:y> <float:z>` - Teleport to coordinates
 
 ### ⛳ `teleportall` **[Admin Only]**
 **Description:** Teleports all players to specified coordinates  

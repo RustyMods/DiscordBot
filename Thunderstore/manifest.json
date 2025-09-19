@@ -1,9 +1,10 @@
 {
   "name": "DiscordBot",
-  "version_number": "1.0.0",
+  "version_number": "1.0.1",
   "website_url": "",
-  "description": "enables two-way communication between your Valheim server and Discord channels.",
+  "description": "Enables two-way communication between your Valheim server and Discord channels.",
   "dependencies": [
-    "denikson-BepInExPack_Valheim-5.4.2201"
+    "denikson-BepInExPack_Valheim-5.4.2201",
+    "ValheimModding-JsonDotNET-13.0.3"
   ]
 }

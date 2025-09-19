@@ -1,18 +1,17 @@
 ﻿namespace DiscordBot;
 
+public enum TextFormat
+{
+    Bold,
+    Italic,
+    BoldItalic,
+    Strikethrough,
+    InlineCode,
+    None
+}
 public static class Formatting
 {
-    public enum TextFormat
-    {
-        Bold,
-        Italic,
-        BoldItalic,
-        Strikethrough,
-        InlineCode,
-        None
-    }
-    
-    public static string Format(string text, TextFormat format)
+    public static string Format(this string text, TextFormat format)
     {
         return format switch
         {
