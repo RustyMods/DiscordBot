@@ -59,10 +59,7 @@ public static class DiscordBot_API
     public static bool IsLoaded() => isLoaded;
 
     private static readonly Method _RegisterCommand = new("RegisterCommand");
-
-    /// <summary>
-    /// Serializes command into json object to send to discord bot plugin
-    /// </summary>
+    
     /// <param name="command">commands saved into a dictionary, must be unique, example: !mycommand</param>
     /// <param name="description">description of command sent to discord when using !help</param>
     /// <param name="action">delegate invoked to run command</param>
@@ -70,7 +67,6 @@ public static class DiscordBot_API
     /// <param name="adminOnly">if true, only discord username registered to config file are allowed to run command</param>
     /// <param name="isSecret">if false, command description is not sent to discord when command !help is called</param>
     /// <param name="emoji">name of emoji to be displayed when description is sent to discord</param>
-    [Description("Json serializes command and sends to discord bot plugin using reflection")]
     public static void RegisterCommand(string command, string description, 
         Action<string[]> action, Action<ZPackage>? reaction = null, 
         bool adminOnly = false, bool isSecret = false, string emoji = "")
