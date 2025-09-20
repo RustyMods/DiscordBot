@@ -47,7 +47,7 @@ namespace DiscordBot
     public class DiscordBotPlugin : BaseUnityPlugin
     {
         internal const string ModName = "DiscordBot";
-        internal const string ModVersion = "1.0.1";
+        internal const string ModVersion = "1.1.0";
         internal const string Author = "RustyMods";
         private const string ModGUID = Author + "." + ModName;
         private static readonly string ConfigFileName = ModGUID + ".cfg";
@@ -77,7 +77,6 @@ namespace DiscordBot
 
         private static ConfigEntry<string> m_commandWebhookURL = null!;
         private static ConfigEntry<string> m_commandChannelID = null!;
-        private static ConfigEntry<int> m_pollInterval = null!;
 
         private static ConfigEntry<string> m_discordAdmins = null!;
         private static ConfigEntry<Toggle> m_logErrors = null!;
@@ -93,7 +92,6 @@ namespace DiscordBot
         public static bool ShowOnLogin => m_loginNotice.Value is Toggle.On;
         public static bool ShowOnLogout => m_logoutNotice.Value is Toggle.On;
         public static ChatDisplay ChatType => m_chatType.Value;
-        public static int PollInterval => m_pollInterval.Value;
         public static string DiscordAdmins => m_discordAdmins.Value;
         public static void SetDiscordAdmins(string value) => m_discordAdmins.Value = value;
         public static string BOT_TOKEN => m_botToken.Value;
@@ -104,6 +102,7 @@ namespace DiscordBot
         public static string NoticeWebhookURL => m_notificationWebhookURL.Value;
         
         public static void LogWarning(string message) => DiscordBotLogger.LogWarning(message);
+        public static void LogDebug(string message) => DiscordBotLogger.LogDebug(message);
 
         
         // TODO : Figure out to make sure connecting peer is connecting to the right server
@@ -115,7 +114,6 @@ namespace DiscordBot
             m_instance = this;
             _serverConfigLocked = config("1 - General", "Lock Configuration", Toggle.On, "If on, the configuration is locked and can be changed by server admins only.");
             _ = ConfigSync.AddLockingConfigEntry(_serverConfigLocked);
-            m_pollInterval = config("1 - General", "Poll Interval", 5, new ConfigDescription("Set interval between check for messages in discord, in seconds", new AcceptableValueRange<int>(5, 300)));
             m_logErrors = config("1 - General", "Log Errors", Toggle.Off, "If on, errors will log to console as warnings");
             
             m_notificationWebhookURL = config("2 - Notifications", "Webhook URL", "", "Set webhook to receive notifications, like server start, stop, save etc...");

@@ -20,38 +20,21 @@ public class Discord : MonoBehaviour
         private static void Postfix(ZNet __instance)
         {
             DiscordBotPlugin.m_instance.gameObject.AddComponent<Discord>();
-            if (!__instance.IsServer()) return;
-            if (DiscordBotPlugin.ShowServerStart) instance.SendStatus(Webhook.Notifications, Keys.ServerStart, __instance.GetWorldName(), Keys.Launching, new Color(0.4f, 0.98f, 0.24f));
         }
     }
 
-    public static Discord instance = null!;
-    
-    public event Action<Message>? OnMessageReceived;
-    public event Action<Message>? OnCommandReceived;
+    public static Discord? instance;
     public event Action<Sprite>? OnImageDownloaded;
     public event Action<AudioClip>? OnAudioDownloaded; // not implemented yet
     public event Action<string>? OnError;
     
-    private string m_lastMessageID = "";
-    private string m_lastCommandID = "";
-    private bool m_isPollingChatter;
-    private bool m_isPollingCommands;
     private bool m_isDownloadingImage;
     private bool m_isDownloadingSound;
-
-    private DateTime m_timeLoaded;
-
     private bool isServer => ZNet.instance?.IsServer() ?? false;
 
     public void Awake()
     {
         instance = this;
-        m_timeLoaded = DateTime.UtcNow;
-        if (!isServer) return;
-        // Only server manages polling
-        OnMessageReceived += HandleChatMessage;
-        OnCommandReceived += HandleCommands;
         OnImageDownloaded += HandleImage;
         OnError += HandleError;
     }
@@ -59,46 +42,22 @@ public class Discord : MonoBehaviour
     private void Start()
     {
         if (!isServer) return;
-        if (string.IsNullOrEmpty(DiscordBotPlugin.BOT_TOKEN))
-        {
-            DiscordBotPlugin.DiscordBotLogger.LogWarning("Bot token not set");
-            return;
-        }
-        if (!string.IsNullOrEmpty(DiscordBotPlugin.ChatChannelID) && DiscordBotPlugin.ShowChat) StartPollingChatter();
-        if (!string.IsNullOrEmpty(DiscordBotPlugin.CommandChannelID)) StartPollingCommands();
-
         SendMessage(Webhook.Commands, ZNet.instance.GetWorldName(), $"{EmojiHelper.Emoji("question")} type `!help` to find list of available commands");
+        if (DiscordBotPlugin.ShowServerStart)
+        {
+            SendStatus(Webhook.Notifications, Keys.ServerStart, ZNet.instance.GetWorldName(), Keys.Launching, new Color(0.4f, 0.98f, 0.24f));
+        }
     }
 
-    private void OnDestroy() => StopPolling();
+    private void OnDestroy()
+    {
+        instance = null;
+    }
     
     private static void HandleError(string message)
     {
         if (!DiscordBotPlugin.LogErrors) return;
         DiscordBotPlugin.LogWarning(message);
-    }
-
-    private void HandleChatMessage(Message message)
-    {
-        BroadcastMessage(message.author?.GetDisplayName() ?? "", message?.content ?? "");
-        if (Player.m_localPlayer) DisplayChatMessage(message?.author?.GetDisplayName() ?? "", message?.content ?? "");
-    }
-
-    private void HandleCommands(Message message)
-    {
-        if (message.content == null) return;
-        string[] args = message.content.Split(' ');
-        string command = args[0].Trim();
-
-        if (!DiscordCommands.m_commands.TryGetValue(command, out DiscordCommands.DiscordCommand discordCommand))
-        {
-            SendMessage(Webhook.Commands, ZNet.instance.GetWorldName(), "Failed to find command: " + command);
-        }
-        else if (!discordCommand.IsAllowed(message.author?.GetFullUsername() ?? ""))
-        {
-            SendMessage(Webhook.Commands, ZNet.instance.GetWorldName(), message.author?.GetFullUsername() + " not allowed to use command: " + command);
-        }
-        else discordCommand.Run(args);
     }
 
     private static void HandleImage(Sprite sprite)
@@ -161,7 +120,7 @@ public class Discord : MonoBehaviour
         }
         else
         {
-            var clip = DownloadHandlerAudioClip.GetContent(request);
+            AudioClip? clip = DownloadHandlerAudioClip.GetContent(request);
             OnAudioDownloaded?.Invoke(clip);
         }
         m_isDownloadingSound = false;
@@ -173,6 +132,7 @@ public class Discord : MonoBehaviour
     [HarmonyPatch(typeof(ZNet), nameof(ZNet.OnNewConnection))]
     private static class ZNet_OnNewConnection_Patch
     {
+        [UsedImplicitly]
         private static void Postfix(ZNetPeer peer) => peer.m_rpc.Register<string, string>(nameof(RPC_ClientBotMessage),RPC_ClientBotMessage);
     }
 
@@ -183,7 +143,7 @@ public class Discord : MonoBehaviour
     }
 
     public static void RPC_ClientBotMessage(ZRpc rpc, string username, string message) => DisplayChatMessage(username, message);
-    private static void DisplayChatMessage(string userName, string message)
+    public static void DisplayChatMessage(string userName, string message)
     {
         string text = $"<color=#{ColorUtility.ToHtmlStringRGB(new Color(0f, 0.5f, 0.5f, 1f))}>[Discord]</color><color=orange>{userName}</color>: {message}";
         Chat.instance.AddString(text);
@@ -191,13 +151,6 @@ public class Discord : MonoBehaviour
     #endregion
     
     #region Sending Messages to Discord
-    
-    // does not work
-    // public void SendComponentMessage(Webhook webhook, string username = "", params EmbedComponent[] components)
-    // {
-    //     DiscordWebhookComponents layoutData = new DiscordWebhookComponents(username, components);
-    //     StartCoroutine(SendLayoutMessage(layoutData, webhook.ToURL()));
-    // }
     
     public void SendMessage(Webhook webhook, string username = "", string message = "")
     {
@@ -273,174 +226,12 @@ public class Discord : MonoBehaviour
         }
     }
     
-    private IEnumerator SendLayoutMessage(DiscordWebhookComponents data, string webhookURL)
-    {
-        if (string.IsNullOrEmpty(webhookURL))
-        {
-            OnError?.Invoke("Webhook URL is not set!");
-            yield break;
-        }
-        
-        string jsonData = JsonConvert.SerializeObject(data);
-        byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonData);
-
-        using UnityWebRequest request = new UnityWebRequest(webhookURL + "?with_components=true", "POST");
-        request.uploadHandler = new UploadHandlerRaw(bodyRaw);
-        request.downloadHandler = new DownloadHandlerBuffer();
-        request.SetRequestHeader("Content-Type", "application/json");
-
-        yield return request.SendWebRequest();
-
-        if (request.result != UnityWebRequest.Result.Success)
-        {
-            string error = $"Failed to send message: {request.error} - {request.downloadHandler.text}";
-            OnError?.Invoke(error);
-            OnError?.Invoke(jsonData);
-        }
-    }
-    
-    #endregion
-    
-    #region Reading Messages from Discord
-    
-    public void StartPollingChatter()
-    {
-        if (m_isPollingChatter || string.IsNullOrEmpty(DiscordBotPlugin.BOT_TOKEN) || string.IsNullOrEmpty(DiscordBotPlugin.ChatChannelID)) return;
-        m_isPollingChatter = true;
-        StartCoroutine(PollForMessages());
-    }
-
-    public void StartPollingCommands()
-    {
-        if (!m_isPollingCommands && !string.IsNullOrEmpty(DiscordBotPlugin.BOT_TOKEN) &&
-            !string.IsNullOrEmpty(DiscordBotPlugin.CommandChannelID))
-        {
-            m_isPollingCommands = true;
-            StartCoroutine(PollForCommands());
-        }
-    }
-
-    public void StopPolling()
-    {
-        m_isPollingChatter = false;
-        m_isPollingCommands = false;
-    }
-    
-    private IEnumerator PollForMessages()
-    {
-        while (m_isPollingChatter)
-        {
-            yield return StartCoroutine(GetChannelMessages());
-            yield return new WaitForSeconds(DiscordBotPlugin.PollInterval);
-        }
-    }
-
-    private IEnumerator PollForCommands()
-    {
-        while (m_isPollingCommands)
-        {
-            yield return StartCoroutine(GetChannelCommands());
-            yield return new WaitForSeconds(DiscordBotPlugin.PollInterval);
-        }
-    }
-
-    private IEnumerator GetChannelCommands()
-    {
-        string url = $"https://discord.com/api/v10/channels/{Channel.Commands.ToID()}/messages?limit=1";
-
-        using UnityWebRequest request = UnityWebRequest.Get(url);
-        request.SetRequestHeader("Authorization", $"Bot {DiscordBotPlugin.BOT_TOKEN}");
-        request.SetRequestHeader("Content-Type", "application/json");
-        
-        yield return request.SendWebRequest();
-        
-        if (request.result == UnityWebRequest.Result.Success)
-        {
-            try
-            {
-                Message[]? messages = JsonConvert.DeserializeObject<Message[]>(request.downloadHandler.text);
-                if (messages is not { Length: > 0 }) yield break;
-                Message message = messages[0];
-                if (message.author?.bot ?? true) yield break;
-
-                DateTime timeStamp = DateTime.Parse(message.timestamp).ToUniversalTime(); // local time, so convert
-                if (m_timeLoaded > timeStamp)
-                {
-                    yield break;
-                }
-
-                if (message.id == null || message.id == m_lastCommandID) yield break;
-                m_lastCommandID = message.id;
-
-                OnCommandReceived?.Invoke(message);
-            }
-            catch (Exception e)
-            {
-                OnError?.Invoke($"Failed to parse message: {e.Message}");
-            }
-        }
-        else
-        {
-            OnError?.Invoke($"Failed to get message: {request.error}");
-        }
-    }
-
-    private IEnumerator GetChannelMessages()
-    {
-        string url = $"https://discord.com/api/v10/channels/{Channel.Chat.ToID()}/messages?limit=10";
-        
-        if (!string.IsNullOrEmpty(m_lastMessageID))
-        {
-            url += $"&after={m_lastMessageID}";
-        }
-
-        using UnityWebRequest request = UnityWebRequest.Get(url);
-        request.SetRequestHeader("Authorization", $"Bot {DiscordBotPlugin.BOT_TOKEN}");
-        request.SetRequestHeader("Content-Type", "application/json");
-            
-        yield return request.SendWebRequest();
-            
-        if (request.result == UnityWebRequest.Result.Success)
-        {
-            try
-            {
-                Message[]? messages = JsonConvert.DeserializeObject<Message[]>(request.downloadHandler.text);
-                if (messages != null)
-                {
-                    for (int i = messages.Length - 1; i >= 0; i--)
-                    {
-                        Message message = messages[i];
-                        if (message.author?.bot ?? true) continue;
-                        if (message.id == null) continue;
-                        if (string.IsNullOrEmpty(m_lastMessageID) || 
-                            ulong.Parse(message.id) > ulong.Parse(m_lastMessageID))
-                        {
-                            m_lastMessageID = message.id;
-                        }
-                        if (!string.IsNullOrEmpty(m_lastMessageID))
-                        {
-                            OnMessageReceived?.Invoke(message);
-                        }
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                OnError?.Invoke($"Failed to parse messages: {e.Message}");
-            }
-        }
-        else
-        {
-            OnError?.Invoke($"Failed to get messages: {request.error}");
-        }
-    }
-    
     #endregion
     
     #region Utility Methods
     
     [Description("Color utility to format into int for discord")]
-    public static int ColorToInt(Color color)
+    private static int ColorToInt(Color color)
     {
         int r = Mathf.RoundToInt(color.r * 255);
         int g = Mathf.RoundToInt(color.g * 255);
@@ -450,9 +241,9 @@ public class Discord : MonoBehaviour
     
     #endregion
     
-    #region Discord Data Structures
+    #region Discord Webhook 
 
-    [Serializable][Description("Discord webhook json object")]
+    [Serializable][UsedImplicitly]
     public class DiscordWebhookData
     {
         public string? content; // up to 2000 characters
@@ -463,7 +254,7 @@ public class Discord : MonoBehaviour
 
         public DiscordWebhookData(string username, string content)
         {
-            if (!string.IsNullOrEmpty(username)) this.username = username;
+            if (!string.IsNullOrEmpty(username)) this.username = Localization.instance.Localize(username);
             this.content = Localization.instance.Localize(content);
         }
 
@@ -474,165 +265,7 @@ public class Discord : MonoBehaviour
         }
     }
 
-    public enum DiscordMessageFlags
-    {
-        CrossPosted = 0, Is_CrossPost = 1, Suppress_Embeds = 2, Source_Message_Deleted = 3, 
-        Urgent = 4, Has_Thread = 5, Ephemeral = 6, Loading = 7, Failed_To_Mention_Some_Roles_In_Thread = 8,
-        Suppress_Notifications = 12, Is_Voice_Message = 13, Has_Snapshot = 14, Is_Components_V2 = 15
-    }
-    
-    #region Component
-
-    [Serializable]
-    public class DiscordWebhookComponents
-    {
-        public string? username;
-        public string? avatar_url;
-        public EmbedComponent[]? components;
-        public int flags = (int)DiscordMessageFlags.Is_Components_V2;
-
-        public DiscordWebhookComponents(string username, params EmbedComponent[] components)
-        {
-            if (!string.IsNullOrEmpty(username)) this.username = username;
-            this.components = components;
-        }
-    }
-
-    [Serializable]
-    public class EmbedComponent
-    {
-        public int type;
-        public int id;
-    }
-    [Serializable]
-    public class ActionRow : EmbedComponent
-    {
-        // up to 5 contextually grouped button components
-        // a single text input component
-        // a single select component
-        public EmbedComponent[]? components;
-
-        public ActionRow()
-        {
-            type = 1;
-        }
-    }
-    [Serializable]
-    public class Button : EmbedComponent
-    {
-        public int style;
-        public string? label;
-        public string? custom_id;
-        public string? url;
-        public bool disabled;
-        
-        public Button(ButtonStyle style, string label)
-        {
-            this.label = label;
-            this.style = (int)style;
-            type = 2;
-        }
-
-        public enum ButtonStyle
-        {
-            Primary = 1, Secondary = 2, Success = 3, Danger = 4, Link = 5, Premium = 6
-        }
-    }
-    [Serializable]
-    public class StringSelect : EmbedComponent
-    {
-        public string? custom_id;
-        public EmbedOption[]? options;
-        public string? placeholder;
-        public int min_values;
-        public int max_values;
-        public bool disabled;
-
-        public StringSelect()
-        {
-            type = 3;
-        }
-    }
-    [Serializable]
-    public class TextInput : EmbedComponent
-    {
-        public string? custom_id;
-        public int style;
-        public string? label;
-        public int min_length;
-        public int max_length;
-        public bool required;
-        public string? value;
-        public string? placeholder;
-
-        public TextInput(TextInputStyle style)
-        {
-            this.style = (int)style;
-            type = 4;
-        }
-
-        public enum TextInputStyle
-        {
-            Short = 1, Paragraph = 2
-        }
-    }
-    [Serializable]
-    public class UserSelect : EmbedComponent
-    {
-        public string? custom_id;
-        public string? placeholder;
-        public object[]? default_values;
-        public int min_values;
-        public int max_values;
-        public bool disabled;
-
-        public UserSelect()
-        {
-            type = 5;
-        }
-    }
-
-    [Serializable]
-    public class Section : EmbedComponent
-    {
-        public EmbedComponent[]? components; // 1 - 3 text components
-        public EmbedComponent? accessory; // only thumbnail or button
-        public Section(params EmbedComponent[] components)
-        {
-            this.components = components;
-            type = 9;
-        }
-
-        public Section()
-        {
-            type = 9;
-        }
-    }
-
-    [Serializable]
-    public class TextDisplay : EmbedComponent
-    {
-        public string? content;
-
-        public TextDisplay(string content)
-        {
-            this.content = content;
-            type = 10;
-        }
-    }
-    
-    #endregion
-    
-    [Serializable]
-    public class EmbedOption
-    {
-        public string? label;
-        public string? value;
-        public string? description;
-        public Dictionary<string, string>? emoji;
-    }
-
-    [Serializable][Description("Discord embed json object")]
+    [Serializable][UsedImplicitly]
     public class Embed
     {
         public string? title;
@@ -689,11 +322,11 @@ public class Discord : MonoBehaviour
 
         public void SetColor(Color Color)
         {
-            this.color = ColorToInt(Color);
+            color = ColorToInt(Color);
         }
     }
     
-    [Serializable][Description("Discord image json object")]
+    [Serializable][UsedImplicitly]
     public class EmbedImage
     {
         public string? url;
@@ -708,7 +341,7 @@ public class Discord : MonoBehaviour
         }
     }
 
-    [Serializable]
+    [Serializable][UsedImplicitly]
     public class EmbedVideo
     {
         public string? url;
@@ -716,21 +349,21 @@ public class Discord : MonoBehaviour
         public int width;
     }
 
-    [Serializable]
+    [Serializable][UsedImplicitly]
     public class EmbedProvider
     {
         public string? name;
         public string? url;
     }
     
-    [Serializable][Description("Discord author json object")]
+    [Serializable][UsedImplicitly]
     public class EmbedAuthor
     {
         public string? name;
         public string? icon_url;
     }
 
-    [Serializable][Description("Discord embed json object")]
+    [Serializable][UsedImplicitly]
     public class EmbedField
     {
         public string? name;
@@ -745,7 +378,7 @@ public class Discord : MonoBehaviour
         }
     }
 
-    [Serializable][Description("Discord footer json object")]
+    [Serializable][UsedImplicitly]
     public class Footer
     {
         public string? text;
@@ -760,42 +393,6 @@ public class Discord : MonoBehaviour
         {
             if (string.IsNullOrEmpty(url)) return;
             icon_url = url;
-        }
-    }
-
-    [Serializable][Description("Discord message json object")]
-    public class Message
-    {
-        public string? id;
-        public string? channel_id;
-        public User? author;
-        public string? content;
-        public string? timestamp;
-        public string? edited_timestamp;
-        public bool tts;
-        public bool mention_everyone;
-        public User[]? mentions;
-        public User[]? mention_roles;
-        
-        public int type;
-        public Embed[]? embeds;
-    }
-
-    [Serializable][Description("Discord user json object")]
-    public class User
-    {
-        public string? id;
-        public string? username;
-        public string? global_name;
-        public string? discriminator;
-        public bool bot;
-        public string? avatar;
-        public string GetDisplayName() => (!string.IsNullOrEmpty(global_name) ? global_name : username) ?? string.Empty;
-        public string GetFullUsername()
-        {
-            return !string.IsNullOrEmpty(discriminator) && discriminator != "0"
-                ? $"{username}#{discriminator}"
-                : username ?? string.Empty;
         }
     }
     #endregion

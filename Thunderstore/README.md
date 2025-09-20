@@ -37,6 +37,7 @@ If you haven't already installed BepInEx:
     - In the left sidebar, click "Bot"
     - Click "Add Bot" ----> confirm by clicking "Yes, do it!"
     - You now have a bot user attached to your application.
+    - You must enable `Message Content Intent`
 3. Copy the Bot Token
     - On the Bot page, under the "Token" section, click "Reset Token" (or "Copy" if it is already shown).
     - Confirm, then copy the generated token.
