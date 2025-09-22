@@ -27,8 +27,7 @@ public static class Keys
             var comma = i == keysList.Count - 1 ? "" : ",";
             lines.Add($"    \"{kvp.Key}\": \"{kvp.Value}\"{comma}");
         }
-
-
+        
         lines.Add("}");
         DiscordBotPlugin.directory.WriteAllLines("DiscordBot.English.json", lines);
         

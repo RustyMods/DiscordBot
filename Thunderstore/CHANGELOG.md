@@ -1,3 +1,8 @@
+# 1.1.1
+- **Fixed**: Resolved TaskCanceledException during WebSocket reconnection attempts
+    - Caused stack trace errors when heartbeat acknowledgment failed
+    - Now handles task cancellation by checking connection state changes
+
 # 1.1.0
 - Switched to websocket for security reasons
 - **REQUIRED ACTION**: You must enable `Message Content Intent` in Discord Developer Portal

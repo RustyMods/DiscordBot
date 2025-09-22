@@ -218,6 +218,21 @@ public class DiscordGatewayClient : MonoBehaviour
             
             StartCoroutine(ListenForMessages());
         }
+        else if (connectTask.Status == TaskStatus.Canceled)
+        {
+            OnClosed?.Invoke("Connection task canceled");
+            isConnecting = false;
+        }
+        else if (connectTask.Status == TaskStatus.Faulted)
+        {
+            OnError?.Invoke($"Failed to connect: {connectTask.Exception?.GetBaseException().Message}");
+            isConnecting = false;
+        
+            if (shouldReconnect)
+            {
+                StartCoroutine(ReconnectAfterDelay());
+            }
+        }
         else
         {
             OnError?.Invoke($"Failed to connect: {connectTask.Exception?.GetBaseException().Message}");
@@ -228,21 +243,21 @@ public class DiscordGatewayClient : MonoBehaviour
     private IEnumerator ListenForMessages()
     {
         byte[] buffer = new byte[BUFFER_SIZE];
-        
+    
         while (isConnected && websocket?.State == WebSocketState.Open && cancellationTokenSource != null)
         {
             Task<WebSocketReceiveResult>? receiveTask = websocket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationTokenSource.Token);
-            
+        
             yield return new WaitUntil(() => receiveTask.IsCompleted);
-            
-            if (receiveTask.IsCompleted)
+        
+            if (receiveTask.Status == TaskStatus.RanToCompletion)
             {
                 WebSocketReceiveResult result = receiveTask.Result;
-                    
+                
                 if (result.MessageType == WebSocketMessageType.Text)
                 {
                     string message = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                        
+                    
                     try
                     {
                         GatewayEvent? payload = JsonConvert.DeserializeObject<GatewayEvent>(message, settings);
@@ -261,9 +276,14 @@ public class DiscordGatewayClient : MonoBehaviour
                     break;
                 }
             }
-            else if (receiveTask.IsFaulted)
+            else if (receiveTask.Status == TaskStatus.Canceled)
             {
-                OnError?.Invoke($"WebSocket receive error: {receiveTask.Exception?.Message}");
+                OnClosed?.Invoke("WebSocket receive task canceled");
+                break;
+            }
+            else if (receiveTask.Status == TaskStatus.Faulted)
+            {
+                OnError?.Invoke($"WebSocket receive error: {receiveTask.Exception?.GetBaseException().Message}");
                 OnWebSocketClose();
                 break;
             }
@@ -477,7 +497,7 @@ public class DiscordGatewayClient : MonoBehaviour
             
         yield return new WaitUntil(() => sendTask.IsCompleted);
             
-        if (sendTask.IsFaulted)
+        if (sendTask.Status == TaskStatus.Faulted)
         {
             OnError?.Invoke($"Failed to send gateway message: {sendTask.Exception?.Message}");
         }
@@ -518,7 +538,7 @@ public class DiscordGatewayClient : MonoBehaviour
         if (!shouldReconnect) yield break;
         
         OnError?.Invoke("Attempting to reconnect in 5 seconds...");
-        yield return new WaitForSeconds(5f);
+        yield return retryConnectionDelay;
         
         if (shouldReconnect)
         {

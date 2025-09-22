@@ -20,11 +20,10 @@ public static class OnNewChat
             switch (DiscordBotPlugin.ChatType)
             {
                 case ChatDisplay.Player:
-                    Discord.instance.SendMessage(Webhook.Chat, sender.GetDisplayName() + $" ({Keys.InGame})", text);
+                    Discord.instance?.SendMessage(Webhook.Chat, sender.GetDisplayName() + $" ({Keys.InGame})", text);
                     break;
                 case ChatDisplay.Bot:
-                    Discord.instance.SendMessage(Webhook.Chat, 
-                        message: $"{sender.GetDisplayName()} {Keys.Shouts} {text.Format(TextFormat.Bold)}");
+                    Discord.instance?.SendMessage(Webhook.Chat, message: $"{sender.GetDisplayName()} {Keys.Shouts} {text.Format(TextFormat.Bold)}");
                     break;
             }
         }

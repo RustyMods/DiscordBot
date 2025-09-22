@@ -33,7 +33,7 @@ public static class OnDeath
                     quip = DeathQuips.GenerateEnvironmentalQuip(__instance.GetPlayerName(), hit.m_hitType);
                 }
             }
-            Discord.instance.SendEmbedMessage(Webhook.Notifications, 
+            Discord.instance?.SendEmbedMessage(Webhook.Notifications, 
                 $"{__instance.GetPlayerName()} {Keys.HasDied}",
                 quip, 
                 thumbnail: avatar);

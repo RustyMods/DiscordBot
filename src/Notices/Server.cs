@@ -14,7 +14,7 @@ public static class Server
         {
             if (!DiscordBotPlugin.ShowServerSave) return;
             if (!__instance.IsServer()) return;
-            Discord.instance.SendStatus(Webhook.Notifications, Keys.ServerSaving, __instance.GetWorldName(), Keys.Saving, new Color(0.4f, 0.98f, 0.24f));
+            Discord.instance?.SendStatus(Webhook.Notifications, Keys.ServerSaving, __instance.GetWorldName(), Keys.Saving, new Color(0.4f, 0.98f, 0.24f));
         }
     }
 
@@ -26,7 +26,7 @@ public static class Server
         {
             if (!DiscordBotPlugin.ShowServerStop) return;
             if (!__instance.IsServer()) return;
-            Discord.instance.SendStatus(Webhook.Notifications, Keys.ServerStop, __instance.GetWorldName(), Keys.Offline, new Color(1f, 0.2f, 0f, 1f));
+            Discord.instance?.SendStatus(Webhook.Notifications, Keys.ServerStop, __instance.GetWorldName(), Keys.Offline, new Color(1f, 0.2f, 0f, 1f));
         }
     }
 
@@ -38,7 +38,7 @@ public static class Server
         {
             if (!__instance.IsServer()) return;
             if (!DiscordBotPlugin.ShowOnLogin || __instance.GetPeer(rpc) is not { } peer || !__instance.IsConnected(peer.m_uid)) return;
-            Discord.instance.SendMessage(Webhook.Notifications, message: $"{peer.m_playerName} {Keys.HasJoined}");
+            Discord.instance?.SendMessage(Webhook.Notifications, message: $"{peer.m_playerName} {Keys.HasJoined}");
         }
     }
     
@@ -50,7 +50,7 @@ public static class Server
         {
             if (!DiscordBotPlugin.ShowOnLogout) return;
             if (!__instance.IsServer()) return;
-            Discord.instance.SendMessage(Webhook.Notifications, message: $"{peer.m_playerName} {Keys.HasLeft}");
+            Discord.instance?.SendMessage(Webhook.Notifications, message: $"{peer.m_playerName} {Keys.HasLeft}");
         }
     }
 }
