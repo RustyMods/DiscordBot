@@ -49,7 +49,7 @@ namespace DiscordBot
     public class DiscordBotPlugin : BaseUnityPlugin
     {
         internal const string ModName = "DiscordBot";
-        internal const string ModVersion = "1.1.1";
+        internal const string ModVersion = "1.1.2";
         internal const string Author = "RustyMods";
         private const string ModGUID = Author + "." + ModName;
         private static readonly string ConfigFileName = ModGUID + ".cfg";
@@ -151,7 +151,7 @@ namespace DiscordBot
             }));
 
             m_botToken = config("5 - Setup", "BOT TOKEN", "", "Add bot token here, server only", false);
-
+            
             m_deathNotice = config("6 - Death Feed", "Enabled", Toggle.On, "If on, bot will send message when player dies");
             m_deathFeedURL = config("6 - Death Feed", "Webhook URL", "", "Set webhook to receive death feed messages");
             m_screenshotDeath = config("6 - Death Feed", "Screenshot", Toggle.On, "If on, bot will post screenshot of death", false);
@@ -186,7 +186,6 @@ namespace DiscordBot
             public readonly List<string> list;
             public StringListConfig(List<string> items) => list = items;
             public StringListConfig(string items) => list = items.Split(',').ToList();
-            
             public static void Draw(ConfigEntryBase cfg)
             {
                 bool locked = cfg.Description.Tags

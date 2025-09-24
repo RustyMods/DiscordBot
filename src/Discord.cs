@@ -243,14 +243,13 @@ public class Discord : MonoBehaviour
             yield break;
         }
         
-        string jsonData = JsonConvert.SerializeObject(data);
+        string json = JsonConvert.SerializeObject(data);
 
         List<IMultipartFormSection> formData = new();
         formData.Add(attachment);
-        formData.Add(new MultipartFormDataSection("payload_json", jsonData));
+        formData.Add(new MultipartFormDataSection("payload_json", json, "application/json"));
 
         using UnityWebRequest request = UnityWebRequest.Post(webhookURL, formData);
-            
         yield return request.SendWebRequest();
 
         if (request.result != UnityWebRequest.Result.Success)

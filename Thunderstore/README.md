@@ -7,42 +7,34 @@ Enables two-way communication between your Valheim server and Discord channels.
 - 🗨️ **Chat Integration**: Send messages between Discord and in-game chat
 - 🤖 **Discord Commands**: Execute server commands from Discord
 - 📢 **Server Notifications**: Get notified when the server starts up
-- 🔧 **Configurable**: Customize polling intervals, channels, and webhooks
 
 ## Prerequisites
 
-- **BepInEx** installed on your Valheim server
+- **BepInEx** installed
+- [JsonDotNet](https://thunderstore.io/c/valheim/p/ValheimModding/JsonDotNET) installed
 - **Discord Webhooks** configured for your server
 - **Discord Bot Token** (If you want your discord server to be able to send messages into your game)
 
 ## Installation
 
-### 1. Install BepInEx
+### Discord Setup
 
-If you haven't already installed BepInEx:
+#### How to create Discord Bot
 
-1. Download BepInEx from [GitHub releases](https://github.com/BepInEx/BepInEx/releases)
-2. Extract the contents to your Valheim server directory
-3. Run the server once to generate BepInEx folders
-
-### 2. Discord Setup
-
-### How to create Discord Bot
-
-1. Create a Discord Application
+1. **Create a Discord Application**
     - Go to the [Discord Developer Portal](https://discord.com/developers/applications)
     - Click "New Application" (top-right)
     - Give your application a name (e.g. ValheimBot) and click "Create".
-2. Add a Bot to the Application
+2. **Add a `Bot` to the Application**
     - In the left sidebar, click "Bot"
     - Click "Add Bot" ----> confirm by clicking "Yes, do it!"
     - You now have a bot user attached to your application.
     - You must enable `Message Content Intent`
-3. Copy the Bot Token
+3. **Copy the `Bot Token`**
     - On the Bot page, under the "Token" section, click "Reset Token" (or "Copy" if it is already shown).
     - Confirm, then copy the generated token.
     - Keep this token secret!, if it leaks, click "Reset Token" to generate a new one
-4. Invite the Bot to your Server
+4. **Invite the Bot to your Discord Server**
     - In the sidebar, click "O2Auth2" ----> "URL Generator".
     - Under **SCOPES**, check `bot`
     - Under **BOT PERMISSIONS**, check the permissions your bot will need
@@ -79,13 +71,12 @@ You'll need Discord Channel IDs for the bot to read messages:
     - Select "Copy ID"
     - Save these IDs for your configuration
 
-### 3. Configure the Plugin
+### Configure the Plugin
 
 After first run, configuration files will be generated in `BepInEx/config/`. Edit the Discord Bot config file to set up your:
 
 - Channel IDs
 - Webhook URLs
-- Polling intervals
 - Bot Token [SERVER ONLY]
 
 ## Configurations
@@ -161,6 +152,7 @@ BOT TOKEN =
 
 - Any message sent as a `shout` in the in-game chat will appear in your configured Discord chat channel
 - Server events (like startup) will be posted to the notification channel
+- Death events will be posted to the death feed channel
 
 ### Discord to In-Game
 
@@ -170,9 +162,9 @@ BOT TOKEN =
 ### Discord Commands
 
 Send commands in your designated command channel:
-- Commands should start with a command prefix (configurable)
-- Example: `listplayers` to list online players
-- Example: `save` to save the world
+- Commands should start with a command prefix `!`
+- Example: `!listplayers` to list online players
+- Example: `!save` to save the world
 
 ## Commands
 

@@ -13,7 +13,6 @@ namespace DiscordBot;
 public static class API
 {
     public static List<Action> m_queue = new List<Action>();
-    
     public static void RegisterCommand(string command, string description, Action<string[]>? action, Action<ZPackage>? reaction, bool adminOnly, bool isSecret, string emoji)
     {
         if (DiscordCommands.loaded)
@@ -38,6 +37,8 @@ public static class API
             });
         }
     }
+    public static void SendNotification(string message) => Discord.instance?.SendMessage(Webhook.Notifications, message);
+    public static void SendChat(string message) => Discord.instance?.SendMessage(Webhook.Chat, message);
 }
 
 // Use this
@@ -59,6 +60,11 @@ public static class DiscordBot_API
     public static bool IsLoaded() => isLoaded;
 
     private static readonly Method _RegisterCommand = new("RegisterCommand");
+    private static readonly Method _SendNotification = new("SendNotification");
+    private static readonly Method _SendChat = new("SendChat");
+
+    public static void SendNotification(string message) => _SendNotification.Invoke(message);
+    public static void SendChat(string message) => _SendChat.Invoke(message);
     
     /// <param name="command">commands saved into a dictionary, must be unique, example: !mycommand</param>
     /// <param name="description">description of command sent to discord when using !help</param>

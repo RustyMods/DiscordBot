@@ -28,8 +28,10 @@ public static class OnDeath
                     quip = DeathQuips.GenerateEnvironmentalQuip(__instance.GetPlayerName(), hit.m_hitType);
                 }
             }
-            if (DiscordBotPlugin.ScreenshotDeath) Screenshot.instance?.StartCapture($"{__instance.GetPlayerName()} {Keys.HasDied}", quip, avatar);
-            else Discord.instance?.SendEmbedMessage(Webhook.DeathFeed, $"{__instance.GetPlayerName()} {Keys.HasDied}", quip, thumbnail: avatar);
+            Screenshot.instance?.StartRecording($"{__instance.GetPlayerName()} {Keys.HasDied}", quip, avatar);
+            //
+            // if (DiscordBotPlugin.ScreenshotDeath) Screenshot.instance?.StartCapture($"{__instance.GetPlayerName()} {Keys.HasDied}", quip, avatar);
+            // else Discord.instance?.SendEmbedMessage(Webhook.DeathFeed, $"{__instance.GetPlayerName()} {Keys.HasDied}", quip, thumbnail: avatar);
         }
     }
 }
