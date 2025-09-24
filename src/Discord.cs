@@ -20,7 +20,7 @@ public class Discord : MonoBehaviour
         private static void Postfix(ZNet __instance)
         {
             DiscordBotPlugin.m_instance.gameObject.AddComponent<Discord>();
-            DiscordBotPlugin.m_instance.gameObject.AddComponent<DeathRecorder>();
+            DiscordBotPlugin.m_instance.gameObject.AddComponent<Screenshot>();
         }
     }
 
@@ -263,6 +263,16 @@ public class Discord : MonoBehaviour
     public void SendImageMessage(Webhook webhook, string title, string content, byte[] imageData, string filename, string username = "", string thumbnail = "")
     {
         MultipartFormFileSection attachment = new MultipartFormFileSection("file", imageData, filename, "image/png");
+        Embed screenshot = new Embed(title, content);
+        screenshot.AddImage($"attachment://{filename}");
+        screenshot.AddThumbnail(thumbnail);
+        DiscordWebhookData data = new(username, screenshot);
+        StartCoroutine(SendWebhookAttachment(data, webhook.ToURL(), attachment));
+    }
+
+    public void SendGifMessage(Webhook webhook, string title, string content, byte[] gif, string filename, string username = "", string thumbnail = "")
+    {
+        MultipartFormFileSection attachment = new MultipartFormFileSection("file", gif, filename, "image/gif");
         Embed screenshot = new Embed(title, content);
         screenshot.AddImage($"attachment://{filename}");
         screenshot.AddThumbnail(thumbnail);

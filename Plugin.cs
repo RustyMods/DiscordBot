@@ -87,6 +87,9 @@ namespace DiscordBot
 
         private static ConfigEntry<string> m_botToken = null!;
         private static ConfigEntry<Toggle> m_screenshotDeath = null!;
+        private static ConfigEntry<float> m_screenshotDelay = null!;
+        private static ConfigEntry<Vector2> m_screenshotResolution = null!;
+        private static ConfigEntry<int> m_screenshotDepth = null!;
 
         public static bool ShowServerStart => m_serverStartNotice.Value is Toggle.On;
         public static bool ShowChat => m_chatEnabled.Value is Toggle.On;
@@ -108,6 +111,10 @@ namespace DiscordBot
         
         public static string DeathFeedWebhookURL => m_deathFeedURL.Value;
         public static bool ScreenshotDeath => m_screenshotDeath.Value is Toggle.On;
+        public static float ScreenshotDelay => m_screenshotDelay.Value;
+
+        public static Vector2 ScreenshotResolution => m_screenshotResolution.Value;
+        public static int ScreenshotDepth => m_screenshotDepth.Value;
         
         public static void LogWarning(string message) => DiscordBotLogger.LogWarning(message);
         public static void LogDebug(string message) => DiscordBotLogger.LogDebug(message);
@@ -128,7 +135,6 @@ namespace DiscordBot
             m_serverStartNotice = config("2 - Notifications", "Startup", Toggle.On, "If on, bot will send message when server is starting");
             m_serverStopNotice = config("2 - Notifications", "Shutdown", Toggle.On, "If on, bot will send message when server is shutting down");
             m_serverSaveNotice = config("2 - Notifications", "Saving", Toggle.On, "If on, bot will send message when server is saving");
-            m_deathNotice = config("2 - Notifications", "On Death", Toggle.On, "If on, bot will send message when player dies");
             m_loginNotice = config("2 - Notifications", "Login", Toggle.On, "If on, bot will send message when player logs in");
             m_logoutNotice = config("2 - Notifications", "Logout", Toggle.On, "If on, bot will send message when player logs out");
 
@@ -146,9 +152,22 @@ namespace DiscordBot
 
             m_botToken = config("5 - Setup", "BOT TOKEN", "", "Add bot token here, server only", false);
 
-            m_deathFeedURL = config("6 - DeathFeed", "Webhook URL", "", "Set webhook to receive death feed messages");
-            m_screenshotDeath = config("6 - DeathFeed", "Screenshot", Toggle.On, "If on, bot will post screenshot of death");
-            
+            m_deathNotice = config("6 - Death Feed", "Enabled", Toggle.On, "If on, bot will send message when player dies");
+            m_deathFeedURL = config("6 - Death Feed", "Webhook URL", "", "Set webhook to receive death feed messages");
+            m_screenshotDeath = config("6 - Death Feed", "Screenshot", Toggle.On, "If on, bot will post screenshot of death", false);
+            m_screenshotDelay = config("6 - Death Feed", "Screenshot Delay", 0.3f, new ConfigDescription("Set delay", new AcceptableValueRange<float>(0.1f, 5f)), false);
+            m_screenshotResolution = config("6 - Death Feed", "Screenshot Resolution", new Vector2(960, 540),
+                new ConfigDescription("Set resolution",
+                    new AcceptableValueList<Vector2>(
+                        new Vector2(800, 600),
+                        new Vector2(960, 540), 
+                        new Vector2(1280, 720),
+                        new Vector2(1920, 1080)
+                        )), 
+                false);
+            m_screenshotDepth = config("6 - Death Feed", "Screenshot Depth", 32, new ConfigDescription("Set depth", new AcceptableValueList<int>(0, 16, 24, 32)), false);
+            m_screenshotResolution.SettingChanged += (_, _) => Screenshot.instance?.OnResolutionChange();
+            m_screenshotDepth.SettingChanged += (_, _) => Screenshot.instance?.OnResolutionChange();
             DiscordCommands.Setup();
             DeathQuips.Setup();
 

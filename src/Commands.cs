@@ -22,11 +22,26 @@ public static class DiscordCommands
             peer.m_rpc.Register<ZPackage>(nameof(RPC_BotToClient), RPC_BotToClient);
         }
     }
+
+    [HarmonyPatch(typeof(Chat), nameof(Chat.Awake))]
+    private static class Chat_Awake_Patch
+    {
+        [UsedImplicitly]
+        private static void Postfix(Chat __instance)
+        {
+            __instance.AddString("/selfie - send a screenshot to discord");
+        }
+    }
+    
     public static readonly Dictionary<string, DiscordCommand> m_commands = new();
     private static readonly List<CommandTooltip> m_tooltips = new();
     public static bool loaded;
     public static void Setup()
     {
+        var selfie = new Terminal.ConsoleCommand("selfie", "Screenshots current game view", _ =>
+        {
+            Screenshot.instance?.StartSelfie();
+        });
         var help = new DiscordCommand("!help", "List of commands", _ =>
         {
             // max 25 embed elements in a single message
