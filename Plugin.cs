@@ -88,9 +88,14 @@ namespace DiscordBot
         private static ConfigEntry<string> m_botToken = null!;
         private static ConfigEntry<Toggle> m_screenshotDeath = null!;
         private static ConfigEntry<float> m_screenshotDelay = null!;
-        private static ConfigEntry<Vector2> m_screenshotResolution = null!;
+        private static ConfigEntry<string> m_screenshotResolution = null!;
         private static ConfigEntry<int> m_screenshotDepth = null!;
-
+        
+        private static ConfigEntry<Toggle> m_screenshotGif = null!;
+        private static ConfigEntry<int> m_gifFPS = null!;
+        private static ConfigEntry<float> m_gifDuration = null!;
+        private static ConfigEntry<string> m_gifResolution = null!;
+        
         public static bool ShowServerStart => m_serverStartNotice.Value is Toggle.On;
         public static bool ShowChat => m_chatEnabled.Value is Toggle.On;
         public static bool LogErrors => m_logErrors.Value is Toggle.On;
@@ -108,16 +113,20 @@ namespace DiscordBot
         public static string ChatWebhookURL => m_chatWebhookURL.Value;
         public static string CommandWebhookURL => m_commandWebhookURL.Value;
         public static string NoticeWebhookURL => m_notificationWebhookURL.Value;
-        
         public static string DeathFeedWebhookURL => m_deathFeedURL.Value;
         public static bool ScreenshotDeath => m_screenshotDeath.Value is Toggle.On;
+        public static bool ScreenshotGif => m_screenshotGif.Value is Toggle.On;
         public static float ScreenshotDelay => m_screenshotDelay.Value;
-
-        public static Vector2 ScreenshotResolution => m_screenshotResolution.Value;
+        public static int GIF_FPS => m_gifFPS.Value;
+        public static float GIF_DURATION => m_gifDuration.Value;
+        public static Resolution ScreenshotResolution => resolutions[m_screenshotResolution.Value];
+        public static Resolution GifResolution => resolutions[m_gifResolution.Value];
         public static int ScreenshotDepth => m_screenshotDepth.Value;
         
         public static void LogWarning(string message) => DiscordBotLogger.LogWarning(message);
         public static void LogDebug(string message) => DiscordBotLogger.LogDebug(message);
+
+        private static readonly Dictionary<string, Resolution> resolutions = new();
 
         
         // TODO : Figure out to make sure connecting peer is connecting to the right server
@@ -156,18 +165,46 @@ namespace DiscordBot
             m_deathFeedURL = config("6 - Death Feed", "Webhook URL", "", "Set webhook to receive death feed messages");
             m_screenshotDeath = config("6 - Death Feed", "Screenshot", Toggle.On, "If on, bot will post screenshot of death", false);
             m_screenshotDelay = config("6 - Death Feed", "Screenshot Delay", 0.3f, new ConfigDescription("Set delay", new AcceptableValueRange<float>(0.1f, 5f)), false);
-            m_screenshotResolution = config("6 - Death Feed", "Screenshot Resolution", new Vector2(960, 540),
+
+            Resolution medium = new(960, 540);
+            Resolution med = new(800, 600);
+            Resolution large = new(960, 540);
+            Resolution hd = new(1280, 720);
+            Resolution super = new(1920, 1080);
+            
+            m_screenshotResolution = config("6 - Death Feed", "Screenshot Resolution", medium.ToString(),
                 new ConfigDescription("Set resolution",
-                    new AcceptableValueList<Vector2>(
-                        new Vector2(800, 600),
-                        new Vector2(960, 540), 
-                        new Vector2(1280, 720),
-                        new Vector2(1920, 1080)
+                    new AcceptableValueList<string>(
+                        med.ToString(),
+                        medium.ToString(),
+                        large.ToString(), 
+                        hd.ToString(),
+                        super.ToString()
                         )), 
                 false);
             m_screenshotDepth = config("6 - Death Feed", "Screenshot Depth", 32, new ConfigDescription("Set depth", new AcceptableValueList<int>(0, 16, 24, 32)), false);
             m_screenshotResolution.SettingChanged += (_, _) => Screenshot.instance?.OnResolutionChange();
             m_screenshotDepth.SettingChanged += (_, _) => Screenshot.instance?.OnResolutionChange();
+            m_screenshotGif = config("6 - Death Feed", "Screenshot GIF", Toggle.On, "If on, bot will post gif of death", false);
+            
+            m_gifFPS = config("6 - Death Feed", "GIF FPS", 30, new ConfigDescription("Set frames per second", new AcceptableValueRange<int>(1, 30)), false);
+            m_gifDuration = config("6 - Death Feed", "GIF Record Duration", 3f, new ConfigDescription("Set recording duration for gif, in seconds", new AcceptableValueRange<float>(1f, 3f)), false);
+
+            Resolution thumbnail = new(256, 144);
+            Resolution small = new(320, 180);
+            Resolution standard = new(480, 270);
+            Resolution banner = new(640, 360);
+            
+            m_gifResolution = config("6 - Death Feed", "GIF Resolution", standard.ToString(),
+                new ConfigDescription("Set resolution",
+                    new AcceptableValueList<string>(
+                        thumbnail.ToString(),
+                        small.ToString(), 
+                        standard.ToString(),
+                        banner.ToString()
+                    )), 
+                false);
+            m_gifResolution.SettingChanged += (_, _) => Screenshot.instance?.OnGifResolutionChange();
             DiscordCommands.Setup();
             DeathQuips.Setup();
 
@@ -231,6 +268,21 @@ namespace DiscordBot
             }
 
             public override string ToString() => string.Join(",", list);
+        }
+
+        public class Resolution
+        {
+            public readonly int width;
+            public readonly int height;
+
+            public Resolution(int width, int height)
+            {
+                this.width = width;
+                this.height = height;
+                resolutions[ToString()] = this;
+            }
+
+            public sealed override string ToString() => $"{width}x{height}";
         }
 
         private void SetupWatcher()

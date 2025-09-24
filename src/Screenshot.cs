@@ -11,12 +11,9 @@ namespace DiscordBot;
 public class Screenshot : MonoBehaviour
 {
     private static Camera camera => Utils.GetMainCamera();
-
-    private static int width => (int)DiscordBotPlugin.ScreenshotResolution.x;
-    private static int height => (int)DiscordBotPlugin.ScreenshotResolution.y;
-    // private static int width = 960;
-    // private static int height = 540;
-    // 0, 16, 24, 32
+    [Header("Screenshot Settings")]
+    private static int width => DiscordBotPlugin.ScreenshotResolution.width;
+    private static int height => DiscordBotPlugin.ScreenshotResolution.height;
     private static int depth => DiscordBotPlugin.ScreenshotDepth;
     public static Screenshot? instance;
 
@@ -24,23 +21,30 @@ public class Screenshot : MonoBehaviour
     private RenderTexture? renderTexture;
     private bool isCapturing;
 
+    [Header("Discord message")]
     private string playerName = string.Empty;
     private string message = string.Empty;
     private string thumbnail = string.Empty;
 
+    [Header("GIF Settings")]
     private readonly List<Texture2D> recordedFrames = new();
     private bool isRecording;
     private float recordStartTime;
     private Coroutine? recordingCoroutine;
     private RenderTexture? gifTexture;
-    private byte[]? gifBytes = null;
+    private byte[]? gifBytes;
+    private static int gifHeight => DiscordBotPlugin.GifResolution.height;
+    private static int gifWidth => DiscordBotPlugin.GifResolution.width;
+    private static int fps => DiscordBotPlugin.GIF_FPS;
+    private static float recordDuration => DiscordBotPlugin.GIF_DURATION;
+    
     public void Awake()
     {
         instance = this;
         renderTexture = new RenderTexture(width, height, depth);
         renderTexture.Create();
 
-        gifTexture = new RenderTexture(640, 360, 24);
+        gifTexture = new RenderTexture(gifWidth, gifHeight, 24);
         gifTexture.Create();
     }
 
@@ -48,7 +52,7 @@ public class Screenshot : MonoBehaviour
     {
         if (isCapturing)
         {
-            DiscordBotPlugin.LogWarning("Screenshot is capturing, cannot change settings");
+            DiscordBotPlugin.LogWarning("Bot is capturing screenshot, cannot change settings");
             return;
         }
         if (renderTexture != null)
@@ -59,6 +63,24 @@ public class Screenshot : MonoBehaviour
         }
         renderTexture = new RenderTexture(width, height, depth);
         renderTexture.Create();
+    }
+
+    public void OnGifResolutionChange()
+    {
+        if (isRecording)
+        {
+            DiscordBotPlugin.LogWarning("Bot is recording GIF, cannot change settings");
+            return;
+        }
+
+        if (gifTexture != null)
+        {
+            gifTexture.Release();
+            DestroyImmediate(gifTexture);
+            gifTexture = null;
+        }
+        gifTexture = new RenderTexture(gifWidth, gifHeight, 24);
+        gifTexture.Create();
     }
 
     public void OnDestroy()
@@ -155,8 +177,8 @@ public class Screenshot : MonoBehaviour
         camera.targetTexture = gifTexture;
         camera.Render();
         RenderTexture.active = gifTexture;
-        Texture2D frame = new Texture2D(640, 360, TextureFormat.RGB24, false);
-        frame.ReadPixels(new Rect(0, 0, 640, 360), 0, 0, false);
+        Texture2D frame = new Texture2D(gifWidth, gifHeight, TextureFormat.RGB24, false);
+        frame.ReadPixels(new Rect(0, 0, gifWidth, gifHeight), 0, 0, false);
         frame.Apply();
         RenderTexture.active = null;
         camera.targetTexture = previousTarget;
@@ -165,10 +187,12 @@ public class Screenshot : MonoBehaviour
 
     private IEnumerator Record()
     {
-        while (isRecording && Time.time - recordStartTime < 3f)
+        float interval = 1f / fps;
+        
+        while (isRecording && Time.time - recordStartTime < recordDuration)
         {
             recordedFrames.Add(CaptureFrame());
-            yield return new WaitForSeconds(0.08f);
+            yield return new WaitForSeconds(interval);
         }
         isRecording = false;
         Thread thread = new Thread(CreateGif);
@@ -185,18 +209,20 @@ public class Screenshot : MonoBehaviour
 
     private void CreateGif()
     {
-        var encoder = new GIFEncoder();
-        encoder.useGlobalColorTable = true;
-        encoder.repeat = 0;
-        encoder.FPS = 30;
-        encoder.transparent = new Color32(255, 0, 255, 255);
-        encoder.dispose = 1;
-        
-        var stream = new MemoryStream();
-        encoder.Start(stream);
-        foreach (var texture in recordedFrames)
+        GIFEncoder encoder = new GIFEncoder
         {
-            var img = new Image(texture);
+            useGlobalColorTable = true,
+            repeat = 0,
+            FPS = fps,
+            transparent = new Color32(255, 0, 255, 255),
+            dispose = 1
+        };
+
+        MemoryStream stream = new MemoryStream();
+        encoder.Start(stream);
+        foreach (Texture2D? texture in recordedFrames)
+        {
+            Image img = new Image(texture);
             img.Flip();
             encoder.AddFrame(img);
         }

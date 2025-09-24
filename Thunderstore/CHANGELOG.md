@@ -4,6 +4,9 @@
 - If you want to keep using notification URL, just input same URL
 - new in-game chat command: `/selfie`
 - Tweaked config layout, added category `Death Feed`
+- Added death GIF, if `On`, records death and creates gif instead of taking a delayed screenshot
+- GIF Configs `FPS`, `Duration`, `Resolution`
+- If feed is not appearing, GIF file size might be too large, try lowering settings
 
 # 1.1.1
 - **Fixed**: Resolved TaskCanceledException during WebSocket reconnection attempts

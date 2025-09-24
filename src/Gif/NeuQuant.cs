@@ -20,7 +20,6 @@
  */
 
 // Ported to Java 12/00 K Weiner
-using System;
 using UnityEngine;
 
 namespace uGIF
