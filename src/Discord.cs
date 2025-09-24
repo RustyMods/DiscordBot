@@ -20,6 +20,7 @@ public class Discord : MonoBehaviour
         private static void Postfix(ZNet __instance)
         {
             DiscordBotPlugin.m_instance.gameObject.AddComponent<Discord>();
+            DiscordBotPlugin.m_instance.gameObject.AddComponent<DeathRecorder>();
         }
     }
 
@@ -158,6 +159,14 @@ public class Discord : MonoBehaviour
         StartCoroutine(SendWebhookMessage(webhookData, webhook.ToURL()));
     }
 
+    public void SendImage(Webhook webhook, string username, Texture2D image)
+    {
+        var webhookData = new DiscordWebhookData(username);
+        byte[] data = image.EncodeToPNG();
+        var form = new MultipartFormFileSection("file", data, DateTime.UtcNow.ToShortDateString() + ".png", "image/png");
+        StartCoroutine(SendWebhookAttachment(webhookData, webhook.ToURL(), form));
+    }
+
     public void SendEmbedMessage(Webhook webhook, string title, string content, string username = "", string thumbnail = "")
     {
         Embed embed = new Embed(title, content);
@@ -224,6 +233,41 @@ public class Discord : MonoBehaviour
             string error = $"Failed to send message: {request.error} - {request.downloadHandler.text}";
             OnError?.Invoke(error);
         }
+    }
+
+    private IEnumerator SendWebhookAttachment(DiscordWebhookData data, string webhookURL, MultipartFormFileSection attachment)
+    {
+        if (string.IsNullOrEmpty(webhookURL))
+        {
+            OnError?.Invoke("Webhook URL is not set!");
+            yield break;
+        }
+        
+        string jsonData = JsonConvert.SerializeObject(data);
+
+        List<IMultipartFormSection> formData = new();
+        formData.Add(attachment);
+        formData.Add(new MultipartFormDataSection("payload_json", jsonData));
+
+        using UnityWebRequest request = UnityWebRequest.Post(webhookURL, formData);
+            
+        yield return request.SendWebRequest();
+
+        if (request.result != UnityWebRequest.Result.Success)
+        {
+            string error = $"Failed to send message: {request.error} - {request.downloadHandler.text}";
+            OnError?.Invoke(error);
+        }
+    }
+    
+    public void SendImageMessage(Webhook webhook, string title, string content, byte[] imageData, string filename, string username = "", string thumbnail = "")
+    {
+        MultipartFormFileSection attachment = new MultipartFormFileSection("file", imageData, filename, "image/png");
+        Embed screenshot = new Embed(title, content);
+        screenshot.AddImage($"attachment://{filename}");
+        screenshot.AddThumbnail(thumbnail);
+        DiscordWebhookData data = new(username, screenshot);
+        StartCoroutine(SendWebhookAttachment(data, webhook.ToURL(), attachment));
     }
     
     #endregion

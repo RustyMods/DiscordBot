@@ -21,6 +21,7 @@ namespace DiscordBot
             Webhook.Chat => DiscordBotPlugin.ChatWebhookURL,
             Webhook.Notifications => DiscordBotPlugin.NoticeWebhookURL,
             Webhook.Commands =>DiscordBotPlugin.CommandWebhookURL,
+            Webhook.DeathFeed => DiscordBotPlugin.DeathFeedWebhookURL,
             _ => DiscordBotPlugin.ChatWebhookURL
         };
 
@@ -38,7 +39,8 @@ namespace DiscordBot
     {
         Notifications, 
         Chat, 
-        Commands
+        Commands,
+        DeathFeed
     }
     public enum Channel { Chat, Commands }
     public enum ChatDisplay { Player, Bot }
@@ -78,10 +80,13 @@ namespace DiscordBot
         private static ConfigEntry<string> m_commandWebhookURL = null!;
         private static ConfigEntry<string> m_commandChannelID = null!;
 
+        private static ConfigEntry<string> m_deathFeedURL = null!;
+
         private static ConfigEntry<string> m_discordAdmins = null!;
         private static ConfigEntry<Toggle> m_logErrors = null!;
 
         private static ConfigEntry<string> m_botToken = null!;
+        private static ConfigEntry<Toggle> m_screenshotDeath = null!;
 
         public static bool ShowServerStart => m_serverStartNotice.Value is Toggle.On;
         public static bool ShowChat => m_chatEnabled.Value is Toggle.On;
@@ -100,6 +105,9 @@ namespace DiscordBot
         public static string ChatWebhookURL => m_chatWebhookURL.Value;
         public static string CommandWebhookURL => m_commandWebhookURL.Value;
         public static string NoticeWebhookURL => m_notificationWebhookURL.Value;
+        
+        public static string DeathFeedWebhookURL => m_deathFeedURL.Value;
+        public static bool ScreenshotDeath => m_screenshotDeath.Value is Toggle.On;
         
         public static void LogWarning(string message) => DiscordBotLogger.LogWarning(message);
         public static void LogDebug(string message) => DiscordBotLogger.LogDebug(message);
@@ -137,6 +145,9 @@ namespace DiscordBot
             }));
 
             m_botToken = config("5 - Setup", "BOT TOKEN", "", "Add bot token here, server only", false);
+
+            m_deathFeedURL = config("6 - DeathFeed", "Webhook URL", "", "Set webhook to receive death feed messages");
+            m_screenshotDeath = config("6 - DeathFeed", "Screenshot", Toggle.On, "If on, bot will post screenshot of death");
             
             DiscordCommands.Setup();
             DeathQuips.Setup();

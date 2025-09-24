@@ -1,3 +1,8 @@
+# 1.1.2
+- Added death screenshot `configurable On/Off`
+- Added config for death webhook URL, to separate from notifications
+- If you want to keep using notification URL, just input same URL
+
 # 1.1.1
 - **Fixed**: Resolved TaskCanceledException during WebSocket reconnection attempts
     - Caused stack trace errors when heartbeat acknowledgment failed
