@@ -61,27 +61,7 @@ public class DiscordGatewayClient : MonoBehaviour
     private readonly PriorityQueue<object> messageQueue = new();
     private bool isSending;
 
-    private class PriorityQueue<T>
-    {
-        private readonly Queue<T> highPriority = new Queue<T>();
-        private readonly Queue<T> normalPriority = new Queue<T>();
-    
-        public void Enqueue(T item, bool priority = false)
-        {
-            if (!instance?.isConnected ?? false) return;
-            if (priority) highPriority.Enqueue(item);
-            else normalPriority.Enqueue(item);
-            instance?.TriggerProcessing();
-        }
-    
-        public T Dequeue()
-        {
-            return highPriority.Count > 0 ? highPriority.Dequeue() : normalPriority.Dequeue();
-        }
-    
-        public int Count => highPriority.Count + normalPriority.Count;
-        public void Clear() { highPriority.Clear(); normalPriority.Clear(); }
-    }
+
     
     private static readonly WaitForSeconds processMessageRate = new (0.1f);
     private static readonly WaitForSeconds retryConnectionDelay = new(5f);
@@ -96,6 +76,21 @@ public class DiscordGatewayClient : MonoBehaviour
         OnDisconnected += () => DiscordBotPlugin.LogDebug("Disconnected from discord gateway");
     }
 
+    private void Start()
+    {
+        if (string.IsNullOrEmpty(DiscordBotPlugin.BOT_TOKEN))
+        {
+            DiscordBotPlugin.LogWarning("Bot token not set");
+            return;
+        }
+        StartCoroutine(InitializeGateway());
+    }
+    private void OnDestroy()
+    {
+        shouldReconnect = false;
+        DisconnectWebSocket();
+        instance = null;
+    }
     private static void HandleError(string message)
     {
         if (!DiscordBotPlugin.LogErrors) return;
@@ -143,21 +138,7 @@ public class DiscordGatewayClient : MonoBehaviour
 
         isSending = false;
     }
-    private void Start()
-    {
-        if (string.IsNullOrEmpty(DiscordBotPlugin.BOT_TOKEN))
-        {
-            DiscordBotPlugin.LogWarning("Bot token not set");
-            return;
-        }
-        StartCoroutine(InitializeGateway());
-    }
-    private void OnDestroy()
-    {
-        shouldReconnect = false;
-        DisconnectWebSocket();
-        instance = null;
-    }
+
     
     #region Gateway Initialization
     private IEnumerator InitializeGateway()
@@ -211,32 +192,33 @@ public class DiscordGatewayClient : MonoBehaviour
         Task connectTask = websocket.ConnectAsync(new Uri(gatewayUrl ?? ""), cancellationTokenSource.Token);
         yield return new WaitUntil(() => connectTask.IsCompleted);
 
-        if (connectTask.Status == TaskStatus.RanToCompletion)
+        switch (connectTask.Status)
         {
-            isConnected = true;
-            isConnecting = false;
-            
-            StartCoroutine(ListenForMessages());
-        }
-        else if (connectTask.Status == TaskStatus.Canceled)
-        {
-            OnClosed?.Invoke("Connection task canceled");
-            isConnecting = false;
-        }
-        else if (connectTask.Status == TaskStatus.Faulted)
-        {
-            OnError?.Invoke($"Failed to connect: {connectTask.Exception?.GetBaseException().Message}");
-            isConnecting = false;
-        
-            if (shouldReconnect)
+            case TaskStatus.RanToCompletion:
+                isConnected = true;
+                isConnecting = false;
+                StartCoroutine(ListenForMessages());
+                break;
+            case TaskStatus.Canceled:
+                OnClosed?.Invoke("Connection task canceled");
+                isConnecting = false;
+                break;
+            case TaskStatus.Faulted:
             {
-                StartCoroutine(ReconnectAfterDelay());
+                OnError?.Invoke($"Failed to connect: {connectTask.Exception?.GetBaseException().Message}");
+                isConnecting = false;
+        
+                if (shouldReconnect)
+                {
+                    StartCoroutine(ReconnectAfterDelay());
+                }
+
+                break;
             }
-        }
-        else
-        {
-            OnError?.Invoke($"Failed to connect: {connectTask.Exception?.GetBaseException().Message}");
-            isConnecting = false;
+            default:
+                OnError?.Invoke($"Failed to connect: {connectTask.Exception?.GetBaseException().Message}");
+                isConnecting = false;
+                break;
         }
     }
     
@@ -583,6 +565,28 @@ public class DiscordGatewayClient : MonoBehaviour
     }
     
     #endregion
+    
+    private class PriorityQueue<T>
+    {
+        private readonly Queue<T> highPriority = new Queue<T>();
+        private readonly Queue<T> normalPriority = new Queue<T>();
+    
+        public void Enqueue(T item, bool priority = false)
+        {
+            if (!instance?.isConnected ?? false) return;
+            if (priority) highPriority.Enqueue(item);
+            else normalPriority.Enqueue(item);
+            instance?.TriggerProcessing();
+        }
+    
+        public T Dequeue()
+        {
+            return highPriority.Count > 0 ? highPriority.Dequeue() : normalPriority.Dequeue();
+        }
+    
+        public int Count => highPriority.Count + normalPriority.Count;
+        public void Clear() { highPriority.Clear(); normalPriority.Clear(); }
+    }
 }
 
 [Serializable]
@@ -613,3 +617,4 @@ public class Author
             : username ?? string.Empty;
     }
 }
+

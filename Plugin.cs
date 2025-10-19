@@ -49,7 +49,7 @@ namespace DiscordBot
     public class DiscordBotPlugin : BaseUnityPlugin
     {
         internal const string ModName = "DiscordBot";
-        internal const string ModVersion = "1.1.2";
+        internal const string ModVersion = "1.1.3";
         internal const string Author = "RustyMods";
         private const string ModGUID = Author + "." + ModName;
         private static readonly string ConfigFileName = ModGUID + ".cfg";
@@ -95,6 +95,8 @@ namespace DiscordBot
         private static ConfigEntry<int> m_gifFPS = null!;
         private static ConfigEntry<float> m_gifDuration = null!;
         private static ConfigEntry<string> m_gifResolution = null!;
+
+        private static ConfigEntry<KeyCode> m_selfieKey = null!;
         
         public static bool ShowServerStart => m_serverStartNotice.Value is Toggle.On;
         public static bool ShowChat => m_chatEnabled.Value is Toggle.On;
@@ -122,6 +124,8 @@ namespace DiscordBot
         public static Resolution ScreenshotResolution => resolutions[m_screenshotResolution.Value];
         public static Resolution GifResolution => resolutions[m_gifResolution.Value];
         public static int ScreenshotDepth => m_screenshotDepth.Value;
+        
+        public static KeyCode SelfieKey => m_selfieKey.Value;
         
         public static void LogWarning(string message) => DiscordBotLogger.LogWarning(message);
         public static void LogDebug(string message) => DiscordBotLogger.LogDebug(message);
@@ -166,9 +170,8 @@ namespace DiscordBot
             m_screenshotDeath = config("6 - Death Feed", "Screenshot", Toggle.On, "If on, bot will post screenshot of death", false);
             m_screenshotDelay = config("6 - Death Feed", "Screenshot Delay", 0.3f, new ConfigDescription("Set delay", new AcceptableValueRange<float>(0.1f, 5f)), false);
 
-            Resolution medium = new(960, 540);
             Resolution med = new(800, 600);
-            Resolution large = new(960, 540);
+            Resolution medium = new(960, 540);
             Resolution hd = new(1280, 720);
             Resolution super = new(1920, 1080);
             
@@ -177,7 +180,6 @@ namespace DiscordBot
                     new AcceptableValueList<string>(
                         med.ToString(),
                         medium.ToString(),
-                        large.ToString(), 
                         hd.ToString(),
                         super.ToString()
                         )), 
@@ -204,7 +206,10 @@ namespace DiscordBot
                         banner.ToString()
                     )), 
                 false);
-            m_gifResolution.SettingChanged += (_, _) => Screenshot.instance?.OnGifResolutionChange();
+            m_gifResolution.SettingChanged += (_, _) => Recorder.instance?.OnGifResolutionChange();
+
+            m_selfieKey = config("1 - General", "Selfie", KeyCode.None, "Hotkey to take selfie and send to discord", false);
+            
             DiscordCommands.Setup();
             DeathQuips.Setup();
 

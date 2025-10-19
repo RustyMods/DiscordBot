@@ -1,3 +1,9 @@
+# 1.1.3
+- Added null checks to new chat messages
+
+# 1.1.21
+- Configurable hotkey to take screenshot (default: `None`), requested.
+
 # 1.1.2
 - Added death screenshot `configurable On/Off`
 - Added config for death webhook URL, to separate from notifications

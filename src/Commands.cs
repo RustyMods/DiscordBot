@@ -754,6 +754,42 @@ public static class DiscordCommands
             Discord.instance?.SendEmbedMessage(Webhook.Commands, $"{profile.m_playerName} Stats", stringBuilder.ToString());
         },emoji: "wine");
 
+        var kills = new DiscordCommand("!kills",
+            "Kill count of specific creature, player must be online, `player name` `creature name`",
+            args =>
+            {
+                if (args.Length < 3) return;
+                var playerName = args[1].Trim();
+                var creatureName = args[2].Trim();
+                if (ZNetScene.instance.GetPrefab(creatureName) is not { } prefab || !prefab.TryGetComponent(out Character component)) return;
+                var sharedName = component.m_name;
+                if (Player.m_localPlayer && Player.m_localPlayer.GetPlayerName() == playerName)
+                {
+                    var count = Game.instance.m_playerProfile.m_enemyStats.TryGetValue(sharedName, out var kill)
+                        ? kill
+                        : 0;
+                    Discord.instance?.SendMessage(Webhook.Commands, message: $"{playerName} has killed {sharedName} `{count}` times");
+                }
+                else if (ZNet.instance.GetPeerByPlayerName(playerName) is { } peer)
+                {
+                    var pkg = new ZPackage();
+                    pkg.Write("!kills");
+                    pkg.Write(sharedName);
+                    peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
+                }
+                else
+                {
+                    Discord.instance?.SendMessage(Webhook.Commands, message: "Failed to find player: " + playerName);
+                }
+            }, pkg =>
+            {
+                var sharedName = pkg.ReadString();
+                var count = Game.instance.m_playerProfile.m_enemyStats.TryGetValue(sharedName, out var kill)
+                    ? kill
+                    : 0;
+                Discord.instance?.SendMessage(Webhook.Commands, message: $"{Game.instance.m_playerProfile.m_playerName} has killed {sharedName} `{count}` times");
+            }, emoji:"beer");
+
         var mods = new DiscordCommand("!mods", "List of plugin installed, `player name?`", args =>
             {
                 if (args.Length > 1)
@@ -798,6 +834,7 @@ public static class DiscordCommands
                 }
                 Discord.instance?.SendEmbedMessage(Webhook.Commands, $"{Game.instance.GetPlayerProfile().m_playerName} installed plugins", stringBuilder.ToString());
             }, emoji: "guitar");
+        
         
         loaded = true;
         foreach (var externalCommands in API.m_queue)

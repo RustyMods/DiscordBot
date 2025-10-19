@@ -21,6 +21,7 @@ public class Discord : MonoBehaviour
         {
             DiscordBotPlugin.m_instance.gameObject.AddComponent<Discord>();
             DiscordBotPlugin.m_instance.gameObject.AddComponent<Screenshot>();
+            DiscordBotPlugin.m_instance.gameObject.AddComponent<Recorder>();
         }
     }
 
@@ -339,24 +340,21 @@ public class Discord : MonoBehaviour
             timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
         }
 
-        public Embed(string title, string description)
+        public Embed(string title, string description) : this()
         {
             this.title = Localization.instance.Localize(title);
             this.description = Localization.instance.Localize(description);
-            timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
         }
 
-        public Embed(string title, params EmbedField[] fields)
+        public Embed(string title, params EmbedField[] fields) : this()
         {
             this.title = title;
             this.fields = fields;
-            timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
         }
 
-        public Embed(string description)
+        public Embed(string description) : this()
         {
             this.description = Localization.instance.Localize(description);
-            timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
         }
         
         public Embed(string title, List<EmbedField> fields) : this (title, fields.ToArray()){}

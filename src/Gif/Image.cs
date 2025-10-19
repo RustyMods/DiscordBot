@@ -16,6 +16,13 @@ namespace uGIF
 			height = f.height;
 		}
 
+		public Image(Color32[] pixels, int width, int height)
+		{
+			this.pixels = pixels;
+			this.width = width;
+			this.height = height;
+		}
+
 		public Image (Image image)
 		{
 			pixels = image.pixels.Clone () as Color32[];

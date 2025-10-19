@@ -118,6 +118,9 @@
         <Reference Include="UnityEngine.ParticleSystemModule">
             <HintPath>$(CorlibPath)\UnityEngine.ParticleSystemModule.dll</HintPath>
         </Reference>
+        <Reference Include="UnityEngine.ScreenCaptureModule">
+          <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Valheim\valheim_Data\Managed\UnityEngine.ScreenCaptureModule.dll</HintPath>
+        </Reference>
         <Reference Include="UnityEngine.UI">
             <HintPath>$(CorlibPath)\UnityEngine.UI.dll</HintPath>
         </Reference>
@@ -146,6 +149,7 @@
         <Compile Include="src\Gif\Image.cs" />
         <Compile Include="src\Gif\LZWEncoder.cs" />
         <Compile Include="src\Gif\NeuQuant.cs" />
+        <Compile Include="src\Recorder.cs" />
         <Compile Include="src\Screenshot.cs" />
         <Compile Include="src\Dir.cs" />
         <Compile Include="src\DeathQuips.cs" />

@@ -10,9 +10,9 @@ public static class OnNewChat
     private static class Chat_OnNewChatMessage_Patch
     {
         [UsedImplicitly]
-        private static void Postfix(Talker.Type type, UserInfo sender, string text)
+        private static void Postfix(Talker.Type type, UserInfo? sender, string text)
         {
-            if (!DiscordBotPlugin.ShowChat) return;
+            if (!DiscordBotPlugin.ShowChat || sender is null || string.IsNullOrEmpty(text)) return;
             // make sure only triggered by local user, not any incoming messages from other players
             if (PlatformManager.DistributionPlatform.LocalUser.PlatformUserID != sender.UserId) return;
             if (type is not Talker.Type.Shout) return;

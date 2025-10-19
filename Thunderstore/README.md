@@ -7,6 +7,8 @@ Enables two-way communication between your Valheim server and Discord channels.
 - 🗨️ **Chat Integration**: Send messages between Discord and in-game chat
 - 🤖 **Discord Commands**: Execute server commands from Discord
 - 📢 **Server Notifications**: Get notified when the server starts up
+- Death GIF / Screenshot
+- Screenshot to Discord chat command / hotkey
 
 ## Prerequisites
 

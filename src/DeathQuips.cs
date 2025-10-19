@@ -24,7 +24,7 @@ public static class DeathQuips
         "{player} became {creature}'s{level} afternoon snack. Crunchy on the outside, chewy on the inside.",
         "Weather update: It's raining {player}, thanks to {creature}{level}!",
         "{player} just discovered what a {creature}{level} tastes like. Spoiler: They taste like {player}.",
-        "{creature} {level} sends their regards to {player}'s next of kin.",
+        "{creature}{level} sends their regards to {player}'s next of kin.",
         "{player} has been permanently relocated by {creature}{level}. New address: The Great Beyond.",
         "Medical examiner's report: {player} suffered from acute {creature}{level} syndrome."
     };
@@ -57,11 +57,11 @@ public static class DeathQuips
         {
             selectedTemplates = BossDeaths;
         }
-        else if (creatureLevel <= 5)
+        else if (creatureLevel <= 1)
         {
             selectedTemplates = LowLevelInsults;
         }
-        else if (creatureLevel >= 50)
+        else if (creatureLevel >= 3)
         {
             selectedTemplates = HighLevelRespect;
         }

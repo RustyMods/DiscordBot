@@ -29,7 +29,7 @@ public static class OnDeath
                 }
             }
             
-            if (DiscordBotPlugin.ScreenshotGif) Screenshot.instance?.StartRecording($"{__instance.GetPlayerName()} {Keys.HasDied}", quip, avatar);
+            if (DiscordBotPlugin.ScreenshotGif) Recorder.instance?.StartRecording($"{__instance.GetPlayerName()} {Keys.HasDied}", quip, avatar);
             else if (DiscordBotPlugin.ScreenshotDeath) Screenshot.instance?.StartCapture($"{__instance.GetPlayerName()} {Keys.HasDied}", quip, avatar);
             else Discord.instance?.SendEmbedMessage(Webhook.DeathFeed, $"{__instance.GetPlayerName()} {Keys.HasDied}", quip, thumbnail: avatar);
         }
