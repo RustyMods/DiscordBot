@@ -49,7 +49,7 @@ namespace DiscordBot
     public class DiscordBotPlugin : BaseUnityPlugin
     {
         internal const string ModName = "DiscordBot";
-        internal const string ModVersion = "1.1.3";
+        internal const string ModVersion = "1.2.1";
         internal const string Author = "RustyMods";
         private const string ModGUID = Author + "." + ModName;
         private static readonly string ConfigFileName = ModGUID + ".cfg";

@@ -100,7 +100,7 @@ public class DiscordGatewayClient : MonoBehaviour
     private static void HandleChatMessage(Message message)
     {
         Discord.instance?.BroadcastMessage(message.author?.GetDisplayName() ?? "", message.content ?? "");
-        if (Player.m_localPlayer) Discord.DisplayChatMessage(message.author?.GetDisplayName() ?? "", message?.content ?? "");
+        if (Player.m_localPlayer) Discord.DisplayChatMessage(message.author?.GetDisplayName() ?? "", message.content ?? "");
     }
     
     private static void HandleCommands(Message message)

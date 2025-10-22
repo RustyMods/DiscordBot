@@ -149,6 +149,7 @@ public class Discord : MonoBehaviour
     {
         string text = $"<color=#{ColorUtility.ToHtmlStringRGB(new Color(0f, 0.5f, 0.5f, 1f))}>[Discord]</color><color=orange>{userName}</color>: {message}";
         Chat.instance.AddString(text);
+        Chat.instance.m_hideTimer = 0.0f;
     }
     #endregion
     

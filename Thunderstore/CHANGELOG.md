@@ -1,3 +1,9 @@
+# 1.2.1
+- show chat panel whenever discord sends message to game
+
+# 1.2.0
+- fixed wrong update version
+
 # 1.1.3
 - Added null checks to new chat messages
 

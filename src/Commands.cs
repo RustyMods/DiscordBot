@@ -790,6 +790,26 @@ public static class DiscordCommands
                 Discord.instance?.SendMessage(Webhook.Commands, message: $"{Game.instance.m_playerProfile.m_playerName} has killed {sharedName} `{count}` times");
             }, emoji:"beer");
 
+        var whisper = new DiscordCommand("!whisper", "Send a chat message to a specific player, `player name` `text`",
+            args =>
+            {
+                if (args.Length < 2) return;
+                var playerName = args[1].Trim();
+                var text = args[2].Trim();
+                if (Player.m_localPlayer && Player.m_localPlayer.GetPlayerName() == playerName)
+                {
+                    Discord.DisplayChatMessage("", text);
+                }
+                else if (ZNet.instance.GetPeerByPlayerName(playerName) is {} peer)
+                {
+                    peer.m_rpc.Invoke("RPC_ClientBotMessage", "", text);
+                }
+                else
+                {
+                    Discord.instance?.SendMessage(Webhook.Commands, message: "Failed to find player: " + playerName);
+                }
+            });
+
         var mods = new DiscordCommand("!mods", "List of plugin installed, `player name?`", args =>
             {
                 if (args.Length > 1)
