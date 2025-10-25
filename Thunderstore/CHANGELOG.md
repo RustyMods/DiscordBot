@@ -1,3 +1,9 @@
+# 1.2.2
+- Overhaul screen capture to use built-in Unity Screen Capture instead of Camera RenderTexture
+- to avoid render texture related crashes (perhaps due Graphic API differences)
+- Downside, I need to hide Hud, Chat and Console while capturing to hide UI overlays
+- Upside, it is simpler resource management and no direct camera manipulation
+
 # 1.2.1
 - show chat panel whenever discord sends message to game
 

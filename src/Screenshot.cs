@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections;
 using System.Threading.Tasks;
+using HarmonyLib;
+using uGIF;
 using UnityEngine;
 
 namespace DiscordBot;
@@ -14,21 +16,28 @@ public class Screenshot : MonoBehaviour
     private static int depth => DiscordBotPlugin.ScreenshotDepth;
     public static Screenshot? instance;
 
-    private Texture2D recordedFrame = null!;
-    private RenderTexture? renderTexture;
+    private readonly Texture2D recordedFrame = null!;
+    // private RenderTexture? renderTexture;
     private bool isCapturing;
 
     [Header("Discord message")]
     private string playerName = string.Empty;
     private string message = string.Empty;
     private string thumbnail = string.Empty;
+
+    private GameObject m_chatWindow = null!;
     
     public void Awake()
     {
         instance = this;
-        renderTexture = new RenderTexture(width, height, depth);
-        renderTexture.Create();
-        recordedFrame = new Texture2D(width, height, TextureFormat.RGB24, false);
+        // renderTexture = new RenderTexture(width, height, depth);
+        // renderTexture.Create();
+        // recordedFrame = new Texture2D(width, height, TextureFormat.RGB24, false);
+    }
+
+    public void Start()
+    {
+        m_chatWindow = Chat.instance.m_chatWindow.Find("root").gameObject;
     }
 
     public void Update()
@@ -39,21 +48,21 @@ public class Screenshot : MonoBehaviour
 
     public void OnResolutionChange()
     {
-        if (isCapturing)
-        {
-            DiscordBotPlugin.LogWarning("Bot is capturing screenshot, cannot change settings");
-            return;
-        }
-        if (renderTexture != null)
-        {
-            renderTexture.Release();
-            DestroyImmediate(renderTexture);
-            renderTexture = null;
-        }
-        renderTexture = new RenderTexture(width, height, depth);
-        renderTexture.Create();
-        DestroyImmediate(recordedFrame);
-        recordedFrame = new Texture2D(width, height, TextureFormat.RGB24, false);
+        // if (isCapturing)
+        // {
+        //     DiscordBotPlugin.LogWarning("Bot is capturing screenshot, cannot change settings");
+        //     return;
+        // }
+        // if (renderTexture != null)
+        // {
+        //     renderTexture.Release();
+        //     DestroyImmediate(renderTexture);
+        //     renderTexture = null;
+        // }
+        // renderTexture = new RenderTexture(width, height, depth);
+        // renderTexture.Create();
+        // DestroyImmediate(recordedFrame);
+        // recordedFrame = new Texture2D(width, height, TextureFormat.RGB24, false);
     }
 
     public void OnDestroy()
@@ -63,9 +72,10 @@ public class Screenshot : MonoBehaviour
 
     private IEnumerator DelayedCaptureFrame()
     {
+        HideHud();
         yield return new WaitForSeconds(DiscordBotPlugin.ScreenshotDelay);
         Capture();
-
+        ShowHud();
         Task<byte[]?> encodingTask = Task.Run(() =>
         {
             try
@@ -99,21 +109,28 @@ public class Screenshot : MonoBehaviour
 
     private void Capture()
     {
-        RenderTexture previousTarget = camera.targetTexture;
-        try
-        {
-            camera.targetTexture = renderTexture;
-            camera.Render();
-            RenderTexture.active = renderTexture;
-            recordedFrame.ReadPixels(new Rect(0, 0, width, height), 0, 0, false);
-            recordedFrame.Apply();
-        }
-        catch (Exception ex)
-        {
-            DiscordBotPlugin.LogWarning($"Failed to capture frame: {ex.Message}");
-        }
-        RenderTexture.active = null;
-        camera.targetTexture = previousTarget;
+        // RenderTexture previousTarget = camera.targetTexture;
+        // try
+        // {
+        //     camera.targetTexture = renderTexture;
+        //     camera.Render();
+        //     RenderTexture.active = renderTexture;
+        //     recordedFrame.ReadPixels(new Rect(0, 0, width, height), 0, 0, false);
+        //     recordedFrame.Apply();
+        // }
+        // catch (Exception ex)
+        // {
+        //     DiscordBotPlugin.LogWarning($"Failed to capture frame: {ex.Message}");
+        // }
+        // RenderTexture.active = null;
+        // camera.targetTexture = previousTarget;
+        var frame = ScreenCapture.CaptureScreenshotAsTexture();
+        Image img = new(frame);
+        img.ResizeBilinear(width, height);
+        recordedFrame.Reinitialize(width, height);
+        recordedFrame.SetPixels32(img.pixels);
+        recordedFrame.Apply();
+        
     }
 
     public void StartCapture(string player, string quip, string avatar)
@@ -131,12 +148,32 @@ public class Screenshot : MonoBehaviour
         Discord.instance?.SendImageMessage(Webhook.DeathFeed, playerName, message, data, $"{DateTime.UtcNow:yyyyMMdd_HHmmss}.png", thumbnail: thumbnail);
     }
 
+    public void HideHud()
+    {
+        Hud.instance.m_userHidden = true;
+        Hud.instance.m_hudPressed = 0.0f;
+        m_chatWindow.SetActive(false);
+        Console.instance.gameObject.SetActive(false);
+    }
+
+    public void ShowHud()
+    {
+        Hud.instance.m_userHidden = false;
+        Hud.instance.m_hudPressed = 0.0f;
+        m_chatWindow.SetActive(true);
+        Console.instance.gameObject.SetActive(true);
+    }
+
     private IEnumerator DelayedSelfie()
     {
+        HideHud();
         yield return new WaitForSeconds(DiscordBotPlugin.ScreenshotDelay);
-        Capture();
 
-        var encodingTask = Task.Run(() =>
+        Capture();
+        
+        ShowHud();
+
+        Task<byte[]?> encodingTask = Task.Run(() =>
         {
             try
             {
@@ -148,7 +185,7 @@ public class Screenshot : MonoBehaviour
                 return null;
             }
         });
-
+        
         while (!encodingTask.IsCompleted)
         {
             yield return null;
