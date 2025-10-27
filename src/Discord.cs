@@ -32,7 +32,7 @@ public class Discord : MonoBehaviour
     
     private bool m_isDownloadingImage;
     private bool m_isDownloadingSound;
-    private bool isServer => ZNet.instance?.IsServer() ?? false;
+    private static bool isServer => ZNet.instance?.IsServer() ?? false;
 
     public void Awake()
     {
@@ -47,7 +47,7 @@ public class Discord : MonoBehaviour
         SendMessage(Webhook.Commands, ZNet.instance.GetWorldName(), $"{EmojiHelper.Emoji("question")} type `!help` to find list of available commands");
         if (DiscordBotPlugin.ShowServerStart)
         {
-            SendStatus(Webhook.Notifications, Keys.ServerStart, ZNet.instance.GetWorldName(), Keys.Launching, new Color(0.4f, 0.98f, 0.24f));
+            SendStatus(Webhook.Notifications, DiscordBotPlugin.OnWorldStartHooks, Keys.ServerStart, ZNet.instance.GetWorldName(), Keys.Launching, new Color(0.4f, 0.98f, 0.24f));
         }
     }
 
@@ -155,10 +155,12 @@ public class Discord : MonoBehaviour
     
     #region Sending Messages to Discord
     
-    public void SendMessage(Webhook webhook, string username = "", string message = "")
+    public void SendMessage(Webhook webhook, string username = "", string message = "", List<string>? hooks = null)
     {
         DiscordWebhookData webhookData = new DiscordWebhookData(username, message);
-        StartCoroutine(SendWebhookMessage(webhookData, webhook.ToURL()));
+        StartCoroutine(hooks is not { Count: > 0 }
+            ? SendWebhookMessage(webhookData, webhook.ToURL())
+            : SendToMultipleHooks(webhookData, hooks));
     }
 
     public void SendImage(Webhook webhook, string username, Texture2D image)
@@ -199,7 +201,7 @@ public class Discord : MonoBehaviour
         StartCoroutine(SendWebhookMessage(webhookData, webhook.ToURL()));
     }
 
-    public void SendStatus(Webhook webhook, string content, string worldName, string status, Color color, string username = "", string thumbnail = "")
+    public void SendStatus(Webhook webhook, List<string> hooks, string content, string worldName, string status, Color color, string username = "", string thumbnail = "")
     {
         Embed embed = new Embed(content);
         embed.SetColor(color);
@@ -209,7 +211,33 @@ public class Discord : MonoBehaviour
         embed.fields = fields.ToArray();
         embed.AddThumbnail(thumbnail);
         DiscordWebhookData webhookData = new DiscordWebhookData(username, embed);
-        StartCoroutine(SendWebhookMessage(webhookData, webhook.ToURL()));
+
+        StartCoroutine(hooks.Count <= 0
+            ? SendWebhookMessage(webhookData, webhook.ToURL())
+            : SendToMultipleHooks(webhookData, hooks));
+    }
+
+    private IEnumerator SendToMultipleHooks(DiscordWebhookData data, List<string> urls)
+    {
+        if (urls.Count == 0) yield break;
+        
+        string jsonData = JsonConvert.SerializeObject(data);
+        byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonData);
+        
+        foreach (string url in urls)
+        {
+            using UnityWebRequest request = new(url, "POST");
+            request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.SetRequestHeader("Content-Type", "application/json");
+
+            yield return request.SendWebRequest();
+            if (request.result != UnityWebRequest.Result.Success)
+            {
+                string error = $"Failed to send message: {request.error} - {request.downloadHandler.text}";
+                OnError?.Invoke(error);
+            }
+        }
     }
     
     private IEnumerator SendWebhookMessage(DiscordWebhookData data, string webhookURL)
@@ -296,7 +324,7 @@ public class Discord : MonoBehaviour
     
     #endregion
     
-    #region Discord Webhook 
+    #region Discord Webhook
 
     [Serializable][UsedImplicitly]
     public class DiscordWebhookData

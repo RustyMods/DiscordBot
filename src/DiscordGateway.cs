@@ -60,8 +60,6 @@ public class DiscordGatewayClient : MonoBehaviour
 
     private readonly PriorityQueue<object> messageQueue = new();
     private bool isSending;
-
-
     
     private static readonly WaitForSeconds processMessageRate = new (0.1f);
     private static readonly WaitForSeconds retryConnectionDelay = new(5f);
@@ -117,7 +115,10 @@ public class DiscordGatewayClient : MonoBehaviour
         {
             Discord.instance?.SendMessage(Webhook.Commands, ZNet.instance.GetWorldName(), message.author?.GetFullUsername() + " not allowed to use command: " + command);
         }
-        else discordCommand.Run(args);
+        else
+        {
+            discordCommand.Run(args, message.author?.GetDisplayName());
+        }
     }
 
     public void TriggerProcessing()

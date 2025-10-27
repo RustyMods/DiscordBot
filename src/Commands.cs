@@ -793,22 +793,23 @@ public static class DiscordCommands
         var whisper = new DiscordCommand("!whisper", "Send a chat message to a specific player, `player name` `text`",
             args =>
             {
-                if (args.Length < 2) return;
+                if (args.Length < 3) return;
                 var playerName = args[1].Trim();
                 var text = args[2].Trim();
+                var author = args[3].Trim();
                 if (Player.m_localPlayer && Player.m_localPlayer.GetPlayerName() == playerName)
                 {
-                    Discord.DisplayChatMessage("", text);
+                    Discord.DisplayChatMessage(author, text);
                 }
                 else if (ZNet.instance.GetPeerByPlayerName(playerName) is {} peer)
                 {
-                    peer.m_rpc.Invoke("RPC_ClientBotMessage", "", text);
+                    peer.m_rpc.Invoke("RPC_ClientBotMessage", author, text);
                 }
                 else
                 {
                     Discord.instance?.SendMessage(Webhook.Commands, message: "Failed to find player: " + playerName);
                 }
-            });
+            }, getAuthor: true);
 
         var mods = new DiscordCommand("!mods", "List of plugin installed, `player name?`", args =>
             {
@@ -897,12 +898,15 @@ public static class DiscordCommands
         [Description("If only discord admins are allowed to run command")]
         private readonly bool adminOnly;
 
+        private readonly bool getAuthor;
+
         [Description("Register a new discord command")]
-        public DiscordCommand(string command, string description, Action<string[]>? action, Action<ZPackage>? reaction = null, bool adminOnly = false, bool isSecret = false, string emoji = "")
+        public DiscordCommand(string command, string description, Action<string[]>? action, Action<ZPackage>? reaction = null, bool adminOnly = false, bool isSecret = false, string emoji = "", bool getAuthor = false)
         {
             this.action = action;
             this.reaction = reaction;
             this.adminOnly = adminOnly;
+            this.getAuthor = getAuthor;
             m_commands[command] = this;
             if (!isSecret)
             {
@@ -911,8 +915,17 @@ public static class DiscordCommands
         }
 
         public bool IsAllowed(string discordUserName) => !adminOnly || new DiscordBotPlugin.StringListConfig(DiscordBotPlugin.DiscordAdmins).list.Contains(discordUserName);
-        
-        public void Run(string[] args) => action?.Invoke(args);
+
+        public void Run(string[] args, string? author = null)
+        {
+            if (getAuthor && author != null)
+            {
+                List<string> list = args.ToList();
+                list.Add(author);
+                args = list.ToArray();
+            }
+            action?.Invoke(args);
+        }
 
         public void Run(ZPackage pkg) => reaction?.Invoke(pkg);
     }

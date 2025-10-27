@@ -1,3 +1,9 @@
+# 1.2.3
+- Fixed screenshot resizing
+- Added feature request for multiple webhook notifications
+- Added random event notification
+- Added author to !whisper command, to know who send whisper
+
 # 1.2.2
 - Overhaul screen capture to use built-in Unity Screen Capture instead of Camera RenderTexture
 - to avoid render texture related crashes (perhaps due Graphic API differences)

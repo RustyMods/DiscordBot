@@ -1,5 +1,8 @@
-﻿using HarmonyLib;
+﻿using System.Collections.Generic;
+using System.Text;
+using HarmonyLib;
 using JetBrains.Annotations;
+using Newtonsoft.Json;
 using UnityEngine;
 
 namespace DiscordBot.Notices;
@@ -12,9 +15,8 @@ public static class Server
         [UsedImplicitly]
         private static void Postfix(ZNet __instance)
         {
-            if (!DiscordBotPlugin.ShowServerSave) return;
-            if (!__instance.IsServer()) return;
-            Discord.instance?.SendStatus(Webhook.Notifications, Keys.ServerSaving, __instance.GetWorldName(), Keys.Saving, new Color(0.4f, 0.98f, 0.24f));
+            if (!DiscordBotPlugin.ShowServerSave || !__instance.IsServer()) return;
+            Discord.instance?.SendStatus(Webhook.Notifications, DiscordBotPlugin.OnWorldSaveHooks, Keys.ServerSaving, __instance.GetWorldName(), Keys.Saving, new Color(0.4f, 0.98f, 0.24f));
         }
     }
 
@@ -24,9 +26,8 @@ public static class Server
         [UsedImplicitly]
         private static void Prefix(ZNet __instance)
         {
-            if (!DiscordBotPlugin.ShowServerStop) return;
-            if (!__instance.IsServer()) return;
-            Discord.instance?.SendStatus(Webhook.Notifications, Keys.ServerStop, __instance.GetWorldName(), Keys.Offline, new Color(1f, 0.2f, 0f, 1f));
+            if (!DiscordBotPlugin.ShowServerStop || !__instance.IsServer()) return;
+            Discord.instance?.SendStatus(Webhook.Notifications, DiscordBotPlugin.OnWorldShutdownHooks, Keys.ServerStop, __instance.GetWorldName(), Keys.Offline, new Color(1f, 0.2f, 0f, 1f));
         }
     }
 
@@ -36,9 +37,8 @@ public static class Server
         [UsedImplicitly]
         private static void Postfix(ZNet __instance, ZRpc rpc)
         {
-            if (!__instance.IsServer()) return;
-            if (!DiscordBotPlugin.ShowOnLogin || __instance.GetPeer(rpc) is not { } peer || !__instance.IsConnected(peer.m_uid)) return;
-            Discord.instance?.SendMessage(Webhook.Notifications, message: $"{peer.m_playerName} {Keys.HasJoined}");
+            if (!DiscordBotPlugin.ShowOnLogin || !__instance.IsServer() || __instance.GetPeer(rpc) is not { } peer || !__instance.IsConnected(peer.m_uid) || string.IsNullOrWhiteSpace(peer.m_playerName)) return;
+            Discord.instance?.SendMessage(Webhook.Notifications, message: $"{peer.m_playerName} {Keys.HasJoined}", hooks: DiscordBotPlugin.OnLoginHooks);
         }
     }
     
@@ -48,9 +48,8 @@ public static class Server
         [UsedImplicitly]
         private static void Prefix(ZNet __instance, ZNetPeer peer)
         {
-            if (!DiscordBotPlugin.ShowOnLogout) return;
-            if (!__instance.IsServer()) return;
-            Discord.instance?.SendMessage(Webhook.Notifications, message: $"{peer.m_playerName} {Keys.HasLeft}");
+            if (!DiscordBotPlugin.ShowOnLogout || !__instance.IsServer() || string.IsNullOrWhiteSpace(peer.m_playerName)) return;
+            Discord.instance?.SendMessage(Webhook.Notifications, message: $"{peer.m_playerName} {Keys.HasLeft}", hooks: DiscordBotPlugin.OnLogoutHooks);
         }
     }
 }

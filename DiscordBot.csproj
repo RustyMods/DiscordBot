@@ -149,6 +149,7 @@
         <Compile Include="src\Gif\Image.cs" />
         <Compile Include="src\Gif\LZWEncoder.cs" />
         <Compile Include="src\Gif\NeuQuant.cs" />
+        <Compile Include="src\Notices\Events.cs" />
         <Compile Include="src\Recorder.cs" />
         <Compile Include="src\Screenshot.cs" />
         <Compile Include="src\Dir.cs" />

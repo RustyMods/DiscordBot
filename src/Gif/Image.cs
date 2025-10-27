@@ -105,7 +105,6 @@ namespace uGIF
 			pixels = newColors;
 			height = newHeight;
 			width = newWidth;
-
 		}
 	
 		Color32 ColorLerpUnclamped (Color A, Color B, float P)
