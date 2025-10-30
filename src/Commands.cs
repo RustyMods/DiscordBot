@@ -30,6 +30,7 @@ public static class DiscordCommands
         private static void Postfix(Chat __instance)
         {
             __instance.AddString("/selfie - send a screenshot to discord");
+            if (ChatAI.HasKey()) __instance.AddString("/prompt [text] - prompt AI service");
         }
     }
     
@@ -41,6 +42,18 @@ public static class DiscordCommands
         var selfie = new Terminal.ConsoleCommand("selfie", "Screenshots current game view", _ =>
         {
             Screenshot.instance?.StartSelfie();
+        });
+        var prompt = new Terminal.ConsoleCommand("prompt", "[text] prompt AI service", args =>
+        {
+            var prompt = string.Join(" ", args.Args.Skip(1));
+            Chat.instance.SendText(Talker.Type.Whisper, prompt);
+            var msg = "You are a witty, sarcastic Viking companion spirit in Valheim. " +
+                      "Respond in 1-2 sentences with humor, personality, and Viking/Norse flair. " +
+                      "Be playful, sometimes cheeky, but always entertaining. " +
+                      "Adapt to player prompt, if they ask a question, be useful" +
+                      "Player message: " + prompt;
+
+            ChatAI.instance?.Ask(msg);
         });
         var help = new DiscordCommand("!help", "List of commands", _ =>
         {
@@ -107,6 +120,7 @@ public static class DiscordCommands
             }
 
         }, emoji: "question");
+        
         var listAdmins = new DiscordCommand("!listadmins", "List of discord admins registered to plugin", _ =>
         {
             StringBuilder stringBuilder = new StringBuilder();
@@ -809,7 +823,7 @@ public static class DiscordCommands
                 {
                     Discord.instance?.SendMessage(Webhook.Commands, message: "Failed to find player: " + playerName);
                 }
-            }, getAuthor: true);
+            }, getAuthor: true, emoji:"pencil");
 
         var mods = new DiscordCommand("!mods", "List of plugin installed, `player name?`", args =>
             {

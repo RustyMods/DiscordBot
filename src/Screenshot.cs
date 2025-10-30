@@ -9,20 +9,17 @@ namespace DiscordBot;
 
 public class Screenshot : MonoBehaviour
 {
-    private static Camera camera => Utils.GetMainCamera();
     [Header("Screenshot Settings")]
     private static int width => DiscordBotPlugin.ScreenshotResolution.width;
     private static int height => DiscordBotPlugin.ScreenshotResolution.height;
-    private static int depth => DiscordBotPlugin.ScreenshotDepth;
     public static Screenshot? instance;
 
     private Texture2D recordedFrame = null!;
-    // private RenderTexture? renderTexture;
     private bool isCapturing;
 
     [Header("Discord message")]
     private string playerName = string.Empty;
-    private string message = string.Empty;
+    public string message = string.Empty;
     private string thumbnail = string.Empty;
 
     private GameObject m_chatWindow = null!;
@@ -30,8 +27,6 @@ public class Screenshot : MonoBehaviour
     public void Awake()
     {
         instance = this;
-        // renderTexture = new RenderTexture(width, height, depth);
-        // renderTexture.Create();
         recordedFrame = new Texture2D(width, height, TextureFormat.RGB24, false);
     }
 
@@ -44,25 +39,6 @@ public class Screenshot : MonoBehaviour
     {
         if (DiscordBotPlugin.SelfieKey is KeyCode.None) return;
         if (Input.GetKey(DiscordBotPlugin.SelfieKey) && !isCapturing) StartSelfie();
-    }
-
-    public void OnResolutionChange()
-    {
-        // if (isCapturing)
-        // {
-        //     DiscordBotPlugin.LogWarning("Bot is capturing screenshot, cannot change settings");
-        //     return;
-        // }
-        // if (renderTexture != null)
-        // {
-        //     renderTexture.Release();
-        //     DestroyImmediate(renderTexture);
-        //     renderTexture = null;
-        // }
-        // renderTexture = new RenderTexture(width, height, depth);
-        // renderTexture.Create();
-        // DestroyImmediate(recordedFrame);
-        // recordedFrame = new Texture2D(width, height, TextureFormat.RGB24, false);
     }
 
     public void OnDestroy()

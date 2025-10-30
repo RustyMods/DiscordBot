@@ -1,4 +1,5 @@
-﻿using HarmonyLib;
+﻿using System.Collections.Generic;
+using HarmonyLib;
 using JetBrains.Annotations;
 using UnityEngine;
 
@@ -13,7 +14,20 @@ public static class Events
         private static void Postfix(RandomEvent __instance)
         {
             if (!DiscordBotPlugin.ShowEvent || !ZNet.instance.IsServer() || !__instance.m_firstActivation || string.IsNullOrWhiteSpace(__instance.m_startMessage)) return;
-            Discord.instance?.SendMessage(Webhook.Notifications, message: $"{__instance.m_startMessage}", hooks: DiscordBotPlugin.OnEventHooks);
+
+            var details = new Dictionary<string, string>()
+            {
+                ["Position"] = $"{__instance.m_pos.x:0.0}, {__instance.m_pos.y:0.0}, {__instance.m_pos.z:0.0}",
+                ["Biome"] = WorldGenerator.instance.GetBiome(__instance.m_pos).ToString()
+            };
+            for (var index = 0; index < __instance.m_spawn.Count; ++index)
+            {
+                var spawn = __instance.m_spawn[index];
+                if (!spawn.m_prefab.TryGetComponent(out Character character)) continue;
+                details[$"Creature {index}"] = character.m_name;
+            }
+
+            Discord.instance?.SendEvent(Webhook.Notifications, DiscordBotPlugin.OnEventHooks, __instance.m_startMessage, Color.yellow, details);
         }
     }
     
@@ -24,7 +38,8 @@ public static class Events
         private static void Postfix(RandomEvent __instance)
         {
             if (!DiscordBotPlugin.ShowEvent || !ZNet.instance.IsServer() || string.IsNullOrWhiteSpace(__instance.m_endMessage)) return;
-            Discord.instance?.SendMessage(Webhook.Notifications, message: $"{__instance.m_endMessage}", hooks: DiscordBotPlugin.OnEventHooks);
+            
+            Discord.instance?.SendEvent(Webhook.Notifications, DiscordBotPlugin.OnEventHooks, __instance.m_endMessage, Color.yellow);
         }
     }
 }

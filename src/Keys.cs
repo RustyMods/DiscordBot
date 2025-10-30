@@ -75,4 +75,5 @@ public static class Keys
     public static readonly string HasJoined = new Key("$msg_hasjoined", "has joined!").key;
     public static readonly string WorldName = new Key("$label_worldname", "World name").key;
     public static readonly string Status = new Key("$label_status", "Status").key;
+    public static readonly string Day = new Key("$label_day", "Day").key;
 }

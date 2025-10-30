@@ -1,3 +1,11 @@
+# 1.2.4
+- Added more details to events
+- Added new day notifications
+- Added ChatAI, with multiple AI API provider options
+- Required: `add your own AI API key to use ChatAI`, not synced with server, so each client will need to provide their own API Key
+- Added chat command: `/prompt`
+- removed local player check for chat, will use world name if no local player, this allows other mods that sends text to trigger forwarding to discord.
+
 # 1.2.3
 - Fixed screenshot resizing
 - Added feature request for multiple webhook notifications

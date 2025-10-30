@@ -55,7 +55,7 @@ namespace DiscordBot
     public class DiscordBotPlugin : BaseUnityPlugin
     {
         internal const string ModName = "DiscordBot";
-        internal const string ModVersion = "1.2.2";
+        internal const string ModVersion = "1.2.4";
         internal const string Author = "RustyMods";
         private const string ModGUID = Author + "." + ModName;
         private static readonly string ConfigFileName = ModGUID + ".cfg";
@@ -64,27 +64,20 @@ namespace DiscordBot
         private readonly Harmony _harmony = new(ModGUID);
         public static readonly ManualLogSource DiscordBotLogger = BepInEx.Logging.Logger.CreateLogSource(ModName);
         private static readonly ConfigSync ConfigSync = new(ModGUID) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
-        private static ConfigEntry<Toggle> _serverConfigLocked = null!;
-
         public static readonly Dir directory = new(Paths.ConfigPath, "DiscordBot");
-        
         public static DiscordBotPlugin m_instance = null!;
         
-        
-        // Extra Webhook URL
+        private static ConfigEntry<Toggle> _serverConfigLocked = null!;
+        #region extra webhooks
         private static ConfigEntry<string> m_startWorldHook = null!;
-        
         private static ConfigEntry<string> m_saveWebhook = null!;
-
         private static ConfigEntry<string> m_shutdownWebhook = null!;
-
         private static ConfigEntry<string> m_loginWebhook = null!;
-
         private static ConfigEntry<string> m_logoutWebhook = null!;
-
         private static ConfigEntry<string> m_eventWebhook = null!;
-        //
-        
+        private static ConfigEntry<string> m_newDayWebhook = null!;
+        #endregion
+        #region notices
         private static ConfigEntry<string> m_notificationWebhookURL = null!;
         private static ConfigEntry<Toggle> m_serverStartNotice = null!;
         private static ConfigEntry<Toggle> m_serverStopNotice = null!;
@@ -93,33 +86,44 @@ namespace DiscordBot
         private static ConfigEntry<Toggle> m_loginNotice = null!;
         private static ConfigEntry<Toggle> m_logoutNotice = null!;
         private static ConfigEntry<Toggle> m_eventNotice = null!;
-
+        private static ConfigEntry<Toggle> m_newDayNotice = null!;
+        #endregion
+        #region chat
         private static ConfigEntry<string> m_chatWebhookURL = null!;
         private static ConfigEntry<string> m_chatChannelID = null!;
         private static ConfigEntry<Toggle> m_chatEnabled = null!;
         private static ConfigEntry<ChatDisplay> m_chatType = null!;
-
+        #endregion
+        #region commands
         private static ConfigEntry<string> m_commandWebhookURL = null!;
         private static ConfigEntry<string> m_commandChannelID = null!;
-
+        #endregion
+        #region death
         private static ConfigEntry<string> m_deathFeedURL = null!;
-
+        #endregion
+        #region general
         private static ConfigEntry<string> m_discordAdmins = null!;
         private static ConfigEntry<Toggle> m_logErrors = null!;
-
         private static ConfigEntry<string> m_botToken = null!;
+        #endregion
+        #region screenshot
         private static ConfigEntry<Toggle> m_screenshotDeath = null!;
         private static ConfigEntry<float> m_screenshotDelay = null!;
         private static ConfigEntry<string> m_screenshotResolution = null!;
-        private static ConfigEntry<int> m_screenshotDepth = null!;
-        
         private static ConfigEntry<Toggle> m_screenshotGif = null!;
         private static ConfigEntry<int> m_gifFPS = null!;
         private static ConfigEntry<float> m_gifDuration = null!;
         private static ConfigEntry<string> m_gifResolution = null!;
-
         private static ConfigEntry<KeyCode> m_selfieKey = null!;
-        
+        #endregion
+        #region ai
+        private static ConfigEntry<AIService> m_aiService = null!;
+        private static ConfigEntry<string> m_chatGPTAPIKEY = null!;
+        private static ConfigEntry<string> m_geminiAPIKEY = null!;
+        private static ConfigEntry<string> m_deepSeekAPIKEY = null!;
+        private static ConfigEntry<string> m_openRouterAPIKEY = null!;
+        private static ConfigEntry<OpenRouterModel> m_openRouterModel = null!;
+        #endregion
         public static bool ShowServerStart => m_serverStartNotice.Value is Toggle.On;
         public static bool ShowChat => m_chatEnabled.Value is Toggle.On;
         public static bool LogErrors => m_logErrors.Value is Toggle.On;
@@ -129,6 +133,7 @@ namespace DiscordBot
         public static bool ShowOnLogin => m_loginNotice.Value is Toggle.On;
         public static bool ShowOnLogout => m_logoutNotice.Value is Toggle.On;
         public static bool ShowEvent => m_eventNotice.Value is Toggle.On;
+        public static bool ShowNewDay => m_newDayNotice.Value is Toggle.On;
         public static ChatDisplay ChatType => m_chatType.Value;
         public static string DiscordAdmins => m_discordAdmins.Value;
         public static void SetDiscordAdmins(string value) => m_discordAdmins.Value = value;
@@ -146,22 +151,25 @@ namespace DiscordBot
         public static float GIF_DURATION => m_gifDuration.Value;
         public static Resolution ScreenshotResolution => resolutions[m_screenshotResolution.Value];
         public static Resolution GifResolution => resolutions[m_gifResolution.Value];
-        public static int ScreenshotDepth => m_screenshotDepth.Value;
         public static KeyCode SelfieKey => m_selfieKey.Value;
-        
+        public static AIService AIService => m_aiService.Value;
+        public static string ChatGPT_KEY => m_chatGPTAPIKEY.Value;
+        public static string Gemini_KEY => m_geminiAPIKEY.Value;
+        public static string DeepSeek_KEY => m_deepSeekAPIKEY.Value;
+        public static string OpenRouter_KEY => m_openRouterAPIKEY.Value;
+        public static OpenRouterModel OpenRouterModel => m_openRouterModel.Value;
         public static void LogWarning(string message) => DiscordBotLogger.LogWarning(message);
         public static void LogDebug(string message) => DiscordBotLogger.LogDebug(message);
 
         private static readonly Dictionary<string, Resolution> resolutions = new();
 
-        public static List<string> OnWorldStartHooks => m_startWorldHook.Value.IsNullOrWhiteSpace()
-            ? new List<string>()
-            : new StringListConfig(m_startWorldHook.Value).list;
+        public static List<string> OnWorldStartHooks => m_startWorldHook.Value.IsNullOrWhiteSpace() ? new List<string>() : new StringListConfig(m_startWorldHook.Value).list;
         public static List<string> OnWorldSaveHooks => m_saveWebhook.Value.IsNullOrWhiteSpace() ? new List<string>() : new StringListConfig(m_saveWebhook.Value).list;
         public static List<string> OnWorldShutdownHooks => m_shutdownWebhook.Value.IsNullOrWhiteSpace() ?  new List<string>() : new StringListConfig(m_shutdownWebhook.Value).list;
         public static List<string> OnLoginHooks => m_loginWebhook.Value.IsNullOrWhiteSpace() ?  new List<string>() : new StringListConfig(m_loginWebhook.Value).list;
         public static List<string> OnLogoutHooks => m_logoutWebhook.Value.IsNullOrWhiteSpace() ? new List<string>() : new StringListConfig(m_logoutWebhook.Value).list;
         public static List<string> OnEventHooks => m_eventWebhook.Value.IsNullOrWhiteSpace() ? new List<string>() : new StringListConfig(m_eventWebhook.Value).list;
+        public static List<string> OnNewDayHooks => m_newDayWebhook.Value.IsNullOrWhiteSpace() ? new List<string>() : new StringListConfig(m_newDayWebhook.Value).list;
         
         // TODO : Figure out to make sure connecting peer is connecting to the right server
 
@@ -181,6 +189,7 @@ namespace DiscordBot
             m_loginNotice = config("2 - Notifications", "Login", Toggle.On, "If on, bot will send message when player logs in");
             m_logoutNotice = config("2 - Notifications", "Logout", Toggle.On, "If on, bot will send message when player logs out");
             m_eventNotice = config("2 - Notifications", "Random Events", Toggle.On, "If on, bot will send message when random event starts");
+            m_newDayNotice = config("2 - Notifications", "New Day", Toggle.Off, "If on, bot will send message when a new day begins");
 
             m_chatWebhookURL = config("3 - Chat", "Webhook URL", "", "Set discord webhook to display chat messages");
             m_chatChannelID = config("3 - Chat", "Channel ID", "", "Set channel ID to monitor for messages");
@@ -215,11 +224,7 @@ namespace DiscordBot
                         super.ToString()
                         )), 
                 false);
-            m_screenshotDepth = config("6 - Death Feed", "Screenshot Depth", 32, new ConfigDescription("Set depth", new AcceptableValueList<int>(0, 16, 24, 32)), false);
-            m_screenshotResolution.SettingChanged += (_, _) => Screenshot.instance?.OnResolutionChange();
-            m_screenshotDepth.SettingChanged += (_, _) => Screenshot.instance?.OnResolutionChange();
             m_screenshotGif = config("6 - Death Feed", "Screenshot GIF", Toggle.On, "If on, bot will post gif of death", false);
-            
             m_gifFPS = config("6 - Death Feed", "GIF FPS", 30, new ConfigDescription("Set frames per second", new AcceptableValueRange<int>(1, 30)), false);
             m_gifDuration = config("6 - Death Feed", "GIF Record Duration", 3f, new ConfigDescription("Set recording duration for gif, in seconds", new AcceptableValueRange<float>(1f, 3f)), false);
 
@@ -237,7 +242,6 @@ namespace DiscordBot
                         banner.ToString()
                     )), 
                 false);
-            m_gifResolution.SettingChanged += (_, _) => Recorder.instance?.OnGifResolutionChange();
 
             m_selfieKey = config("1 - General", "Selfie", KeyCode.None, "Hotkey to take selfie and send to discord", false);
 
@@ -249,7 +253,14 @@ namespace DiscordBot
             m_loginWebhook = config("7 - Webhooks", "On Login",  "", new ConfigDescription("If empty, will use default notification webhook", null, new ConfigurationManagerAttributes(){ CustomDrawer = StringListConfig.Draw}));
             m_logoutWebhook = config("7 - Webhooks", "On Logout", "", new ConfigDescription("If empty, will use default notification webhook", null, new ConfigurationManagerAttributes(){ CustomDrawer = StringListConfig.Draw}));
             m_eventWebhook = config("7 - Webhooks", "On Event", "", new ConfigDescription("If empty, will use default notification webhook", null, new ConfigurationManagerAttributes(){ CustomDrawer = StringListConfig.Draw}));
-            
+            m_newDayWebhook = config("7 - Webhooks", "On New Day", "", new ConfigDescription("If empty, will use default notification webhook", null, new ConfigurationManagerAttributes() { CustomDrawer = StringListConfig.Draw }));
+
+            m_aiService = config("8 - AI", "Provider", AIService.Gemini, "Set which Artificial Intelligence API to use", false);
+            m_chatGPTAPIKEY = config("8 - AI", "ChatGPT", "", "Set ChatGPT key", false);
+            m_geminiAPIKEY = config("8 - AI", "Gemini", "", "Set Gemini key", false);
+            m_deepSeekAPIKEY = config("8 - AI", "DeepSeek", "", "Set DeepSeek key", false);
+            m_openRouterAPIKEY = config("8 - AI", "OpenRouter", "", "Set OpenRouter key", false);
+            m_openRouterModel = config("8 - AI", "OpenRouter Model", OpenRouterModel.Claude3_5Sonnet, "Set OpenRouter Model", false);
             DiscordCommands.Setup();
             DeathQuips.Setup();
 

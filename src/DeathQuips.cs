@@ -72,10 +72,11 @@ public static class DeathQuips
         
         var template = selectedTemplates[random.Next(selectedTemplates.Length)];
         var levelDisplay = creatureLevel > 1 ? " " + new string('★', creatureLevel - 1) : "";
-        return template
+        var result =  template
             .Replace("{player}", playerName)
             .Replace("{creature}", creatureName)
             .Replace("{level}", levelDisplay);
+        return result;
     }
     
     public static string GenerateContextualQuip(string playerName, string creatureName, int creatureLevel, string prefabID = "")

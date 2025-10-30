@@ -9,6 +9,7 @@ Enables two-way communication between your Valheim server and Discord channels.
 - 📢 **Server Notifications**: Get notified when the server starts up
 - Death GIF / Screenshot
 - Screenshot to Discord chat command / hotkey
+- ChatAI
 
 ## Prerequisites
 
@@ -16,6 +17,7 @@ Enables two-way communication between your Valheim server and Discord channels.
 - [JsonDotNet](https://thunderstore.io/c/valheim/p/ValheimModding/JsonDotNET) installed
 - **Discord Webhooks** configured for your server
 - **Discord Bot Token** (If you want your discord server to be able to send messages into your game)
+- Required on `client` and `server`
 
 ## Installation
 
@@ -323,6 +325,63 @@ Send commands in your designated command channel:
 
 ---
 
+### ChatAI
+
+#### 🤖 AI Chat Integration
+The plugin supports multiple AI providers for enhanced chat interactions and death quips. 
+Each client configures their own API keys, ensuring token usage and costs remain separate.
+
+#### 🔑 Keys
+- Client-Managed Keys: Each user provides their own API keys
+- Enhanced Death Quips: AI-generated unique death messages when API keys are configured
+
+Multiple Providers: Choose from 4 different AI services
+
+#### 💡 Provider Recommendations & Notes
+Free Tier Options:
+- Gemini - Offers limited free usage through Google AI Studio, making it the best choice for cost-free experimentation
+- OpenRouter - Provides access to several free models from various providers
+
+Paid Services:
+- ChatGPT - Requires paid OpenAI API credits (no free tier available)
+- DeepSeek - While competitively priced, requires API credit purchase
+
+Haven't fully tested longevity of this feature, but can be a fun gimmick for a little while
+```
+[8 - AI]
+
+## Set which Artificial Intelligence API to use [Not Synced with Server]
+# Setting type: AIService
+# Default value: Gemini
+# Acceptable values: ChatGPT, Gemini, DeepSeek, OpenRouter
+Provider = Gemini
+
+## Set ChatGPT key [Not Synced with Server]
+# Setting type: String
+# Default value:
+ChatGPT =
+
+## Set Gemini key [Not Synced with Server]
+# Setting type: String
+# Default value:
+Gemini = 
+
+## Set DeepSeek key [Not Synced with Server]
+# Setting type: String
+# Default value:
+DeepSeek = 
+
+## Set OpenRouter key [Not Synced with Server]
+# Setting type: String
+# Default value:
+OpenRouter = 
+
+## Set OpenRouter Model [Not Synced with Server]
+# Setting type: OpenRouterModel
+# Default value: Claude3_5Sonnet
+# Acceptable values: Claude3_5Sonnet, GeminiFlashFree, Llama31_8B, Llama31_70B, WizardLM8x22B, GPT4oMini, DeepSeekChat
+OpenRouter Model = Claude3_5Sonnet
+```
 ### Notes
 
 - **Admin Commands:** Commands marked with **[Admin Only]** can only be used by Discord users registered in the admin list

@@ -22,6 +22,7 @@ public class Discord : MonoBehaviour
             DiscordBotPlugin.m_instance.gameObject.AddComponent<Discord>();
             DiscordBotPlugin.m_instance.gameObject.AddComponent<Screenshot>();
             DiscordBotPlugin.m_instance.gameObject.AddComponent<Recorder>();
+            DiscordBotPlugin.m_instance.gameObject.AddComponent<ChatAI>();
         }
     }
 
@@ -212,6 +213,23 @@ public class Discord : MonoBehaviour
         embed.AddThumbnail(thumbnail);
         DiscordWebhookData webhookData = new DiscordWebhookData(username, embed);
 
+        StartCoroutine(hooks.Count <= 0
+            ? SendWebhookMessage(webhookData, webhook.ToURL())
+            : SendToMultipleHooks(webhookData, hooks));
+    }
+
+    public void SendEvent(Webhook webhook, List<string> hooks, string content, Color color, Dictionary<string, string>? extra = null, string thumbnail = "")
+    {
+        Embed embed = new Embed(content);
+        embed.SetColor(color);
+        if (extra?.Count > 0)
+        {
+            List<EmbedField> fields = new();
+            foreach(KeyValuePair<string, string> kvp in extra) fields.Add(new EmbedField(kvp.Key, kvp.Value));
+            embed.fields = fields.ToArray();
+        }
+        embed.AddThumbnail(thumbnail);
+        DiscordWebhookData webhookData = new DiscordWebhookData("", embed);
         StartCoroutine(hooks.Count <= 0
             ? SendWebhookMessage(webhookData, webhook.ToURL())
             : SendToMultipleHooks(webhookData, hooks));
