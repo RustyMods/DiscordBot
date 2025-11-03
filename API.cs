@@ -19,10 +19,10 @@ public static class API
         {
             if (DiscordCommands.m_commands.ContainsKey(command)) return;
             _ = new DiscordCommands.DiscordCommand(command, description, action, reaction, adminOnly, isSecret, emoji);
-            if (!isSecret)
-            {
-                _ = new DiscordCommands.CommandTooltip(command, description, adminOnly, emoji);
-            }
+            // if (!isSecret)
+            // {
+            //     _ = new DiscordCommands.CommandTooltip(command, description, adminOnly, emoji);
+            // }
         }
         else
         {
@@ -30,10 +30,10 @@ public static class API
             {
                 if (DiscordCommands.m_commands.ContainsKey(command)) return;
                 _ = new DiscordCommands.DiscordCommand(command, description, action, reaction, adminOnly, isSecret, emoji);
-                if (!isSecret)
-                {
-                    _ = new DiscordCommands.CommandTooltip(command, description, adminOnly, emoji);
-                }
+                // if (!isSecret)
+                // {
+                //     _ = new DiscordCommands.CommandTooltip(command, description, adminOnly, emoji);
+                // }
             });
         }
     }

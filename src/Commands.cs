@@ -37,6 +37,7 @@ public static class DiscordCommands
     public static readonly Dictionary<string, DiscordCommand> m_commands = new();
     private static readonly List<CommandTooltip> m_tooltips = new();
     public static bool loaded;
+    public static bool IsCommand(string input) => m_commands.ContainsKey(input);
     public static void Setup()
     {
         var selfie = new Terminal.ConsoleCommand("selfie", "Screenshots current game view", _ =>
@@ -45,14 +46,14 @@ public static class DiscordCommands
         });
         var prompt = new Terminal.ConsoleCommand("prompt", "[text] prompt AI service", args =>
         {
-            var prompt = string.Join(" ", args.Args.Skip(1));
+            string prompt = string.Join(" ", args.Args.Skip(1));
             Chat.instance.SendText(Talker.Type.Whisper, prompt);
-            var msg = "You are a witty, sarcastic Viking companion spirit in Valheim. " +
-                      "Respond in 1-2 sentences with humor, personality, and Viking/Norse flair. " +
-                      "Be playful, sometimes cheeky, but always entertaining. " +
-                      "Adapt to player prompt, if they ask a question, be useful" +
-                      "Player message: " + prompt;
-
+            Discord.instance?.SendMessage(Webhook.Chat, Player.m_localPlayer?.GetPlayerName() ?? ZNet.instance.GetWorldName(), $"{DiscordBotPlugin.AIService}, {prompt}");
+            string msg = "You are a witty, sarcastic Viking companion spirit in Valheim. " +
+                         "Respond in 1-2 sentences with humor, personality, and Viking/Norse flair. " +
+                         "Be playful, sometimes cheeky, but always entertaining. " +
+                         "Adapt to player prompt, if they ask a question, be useful" +
+                         "Player message: " + prompt;
             ChatAI.instance?.Ask(msg);
         });
         var help = new DiscordCommand("!help", "List of commands", _ =>
@@ -120,6 +121,21 @@ public static class DiscordCommands
             }
 
         }, emoji: "question");
+
+        var discordPrompt = new DiscordCommand("!prompt", "Prompt server AI service, `prompt`", args =>
+        {
+            if (args.Length < 3) return;
+            var query = string.Join(" ", args, 1, args.Length - 2);
+            var author = args.Last();
+            string msg = "You are a witty, sarcastic Viking companion spirit in Valheim. " +
+                         "Respond in 1-2 sentences with humor, personality, and Viking/Norse flair. " +
+                         "Be playful, sometimes cheeky, but always entertaining. " +
+                         "Adapt to player prompt, if they ask a question, be useful" +
+                         "Player message: " + query;
+            if (Player.m_localPlayer) Discord.DisplayChatMessage(author, query);
+            Discord.instance?.BroadcastMessage(author, query);
+            ChatAI.instance?.Ask(msg);
+        }, getAuthor: true, emoji:"phone");
         
         var listAdmins = new DiscordCommand("!listadmins", "List of discord admins registered to plugin", _ =>
         {
@@ -424,6 +440,15 @@ public static class DiscordCommands
             var message = string.Join(" ", args.Skip(1));
             MessageHud.instance.MessageAll(MessageHud.MessageType.Center, message);
         }, adminOnly: true, emoji:"smile");
+
+        var shout = new DiscordCommand("!shout", "Shout message to all players which shows up in chat window",
+            args =>
+            {
+                var author = ZNet.instance?.GetWorldName() ?? "Server";
+                var msg = string.Join(" ", args.Skip(1));
+                Discord.instance?.BroadcastMessage(author, msg);
+                if (Player.m_localPlayer) Discord.DisplayChatMessage(author, msg);
+            }, adminOnly:true);
 
         var image = new DiscordCommand("!image", "Broadcast image to all players which takes over entire screen",
             args =>
@@ -824,7 +849,13 @@ public static class DiscordCommands
                     Discord.instance?.SendMessage(Webhook.Commands, message: "Failed to find player: " + playerName);
                 }
             }, getAuthor: true, emoji:"pencil");
-
+        var music = new DiscordCommand("!music", "Play music, `url`", args =>
+        {
+            if (args.Length < 2) return;
+            var url = args[1].Trim();
+            if (Player.m_localPlayer) Discord.instance?.GetSound(url, AudioType.UNKNOWN);
+            Discord.BroadcastSound(url);
+        }, adminOnly: true);
         var mods = new DiscordCommand("!mods", "List of plugin installed, `player name?`", args =>
             {
                 if (args.Length > 1)
@@ -880,8 +911,7 @@ public static class DiscordCommands
     
     public static bool Spawn(string prefabName, int level, Vector3 pos)
     {
-        if (!ZNetScene.instance) return false;
-        if (ZNetScene.instance.GetPrefab(prefabName) is not { } prefab) return false;
+        if (!ZNetScene.instance || ZNetScene.instance.GetPrefab(prefabName) is not { } prefab) return false;
         Vector3 random = (UnityEngine.Random.insideUnitSphere * 5f) with { y = 0.0f };
         Vector3 location = pos + random;
         GameObject? gameObject = UnityEngine.Object.Instantiate(prefab, location, Quaternion.identity);

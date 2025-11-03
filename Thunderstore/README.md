@@ -382,6 +382,30 @@ OpenRouter =
 # Acceptable values: Claude3_5Sonnet, GeminiFlashFree, Llama31_8B, Llama31_70B, WizardLM8x22B, GPT4oMini, DeepSeekChat
 OpenRouter Model = Claude3_5Sonnet
 ```
+
+### Jobs [beta]
+
+Job allows to invoke discord commands on a set interval, beginning whenever the server starts.
+
+Format:
+```yml
+command: !shout
+interval: 1000.0
+args: This is a reoccurring shout message from the server every 16 minutes
+```
+
+Example:
+- List current active players every 30 minutes
+```yml
+command: !listplayers
+interval: 1800
+```
+- Save world and active player profiles, every 1 hour
+```yml
+command: !save
+interval: 3600
+ ```
+
 ### Notes
 
 - **Admin Commands:** Commands marked with **[Admin Only]** can only be used by Discord users registered in the admin list

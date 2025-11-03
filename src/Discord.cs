@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Text;
+using DiscordBot.Notices;
 using HarmonyLib;
 using JetBrains.Annotations;
 using Newtonsoft.Json;
@@ -25,25 +26,31 @@ public class Discord : MonoBehaviour
             DiscordBotPlugin.m_instance.gameObject.AddComponent<ChatAI>();
         }
     }
+    private static bool isServer => ZNet.instance?.IsServer() ?? false;
 
     public static Discord? instance;
     public event Action<Sprite>? OnImageDownloaded;
-    public event Action<AudioClip>? OnAudioDownloaded; // not implemented yet
+    public event Action<AudioClip>? OnAudioDownloaded;
     public event Action<string>? OnError;
     
     private bool m_isDownloadingImage;
     private bool m_isDownloadingSound;
-    private static bool isServer => ZNet.instance?.IsServer() ?? false;
+
+    public AudioSource? m_soundSource;
+
+    private readonly Dictionary<string, AudioClip> m_downloadedAudioClips = new();
 
     public void Awake()
     {
         instance = this;
         OnImageDownloaded += HandleImage;
         OnError += HandleError;
+        OnAudioDownloaded += HandleSound;
     }
 
     private void Start()
     {
+        SetupAudioSource();
         if (!isServer) return;
         SendMessage(Webhook.Commands, ZNet.instance.GetWorldName(), $"{EmojiHelper.Emoji("question")} type `!help` to find list of available commands");
         if (DiscordBotPlugin.ShowServerStart)
@@ -56,17 +63,32 @@ public class Discord : MonoBehaviour
     {
         instance = null;
     }
+
+    public void SetupAudioSource()
+    {
+        m_soundSource = gameObject.AddComponent<AudioSource>();
+        m_soundSource.loop = false;
+        m_soundSource.spatialBlend = 0.0f;
+        m_soundSource.outputAudioMixerGroup = MusicMan.instance.m_musicMixer;
+        m_soundSource.priority = 0;
+        m_soundSource.bypassReverbZones = true;
+        m_soundSource.volume = MusicMan.instance.m_musicVolume;
+    }
     
     private static void HandleError(string message)
     {
         if (!DiscordBotPlugin.LogErrors) return;
-        DiscordBotPlugin.LogWarning(message);
+        DiscordBotPlugin.LogError(message);
     }
 
     private static void HandleImage(Sprite sprite)
     {
-        if (ImageHud.instance is null) return;
-        ImageHud.instance.Show(sprite);
+        ImageHud.instance?.Show(sprite);
+    }
+
+    private void HandleSound(AudioClip clip)
+    {
+        m_soundSource?.PlayOneShot(clip);
     }
     
     #region Image Download
@@ -108,9 +130,31 @@ public class Discord : MonoBehaviour
     {
         if (m_isDownloadingSound) return;
         m_isDownloadingSound = true;
-        StartCoroutine(DownloadSound(url, type));
+        if (m_downloadedAudioClips.TryGetValue(url, out var clip))
+        {
+            OnAudioDownloaded?.Invoke(clip);
+        }
+        else if (IsDirectAudioUrl(url))
+        {
+            StartCoroutine(DownloadSound(url, type));
+        }
+        else
+        {
+            OnError?.Invoke("Invalid audio url: " + url);
+        }
     }
-
+    
+    private bool IsDirectAudioUrl(string url)
+    {
+        string lowerUrl = url.ToLower();
+        return lowerUrl.EndsWith(".mp3") || 
+               lowerUrl.EndsWith(".wav") || 
+               lowerUrl.EndsWith(".ogg") || 
+               lowerUrl.EndsWith(".m4a") ||
+               lowerUrl.Contains(".mp3?") ||
+               lowerUrl.Contains(".wav?") ||
+               lowerUrl.Contains(".ogg?");
+    }
     private IEnumerator DownloadSound(string url, AudioType type)
     {
         using UnityWebRequest request = UnityWebRequestMultimedia.GetAudioClip(url, type);
@@ -124,7 +168,15 @@ public class Discord : MonoBehaviour
         else
         {
             AudioClip? clip = DownloadHandlerAudioClip.GetContent(request);
-            OnAudioDownloaded?.Invoke(clip);
+            if (clip is null)
+            {
+                OnError?.Invoke("Failed to download audio");
+            }
+            else
+            {
+                m_downloadedAudioClips[url] = clip;
+                OnAudioDownloaded?.Invoke(clip);
+            }
         }
         m_isDownloadingSound = false;
     }
@@ -136,7 +188,11 @@ public class Discord : MonoBehaviour
     private static class ZNet_OnNewConnection_Patch
     {
         [UsedImplicitly]
-        private static void Postfix(ZNetPeer peer) => peer.m_rpc.Register<string, string>(nameof(RPC_ClientBotMessage),RPC_ClientBotMessage);
+        private static void Postfix(ZNetPeer peer)
+        {
+            peer.m_rpc.Register<string, string>(nameof(RPC_ClientBotMessage),RPC_ClientBotMessage);
+            peer.m_rpc.Register<string>(nameof(RPC_GetSound),RPC_GetSound);
+        }
     }
 
     public void BroadcastMessage(string username, string message)
@@ -150,8 +206,16 @@ public class Discord : MonoBehaviour
     {
         string text = $"<color=#{ColorUtility.ToHtmlStringRGB(new Color(0f, 0.5f, 0.5f, 1f))}>[Discord]</color><color=orange>{userName}</color>: {message}";
         Chat.instance.AddString(text);
-        Chat.instance.m_hideTimer = 0.0f;
+        Chat.instance.Show();
     }
+
+    public static void BroadcastSound(string url)
+    {
+        if (!ZNet.instance || !ZNet.m_isServer) return;
+        foreach(var peer in ZNet.instance.GetPeers()) peer.m_rpc.Invoke(nameof(RPC_GetSound), url);
+    }
+    public static void RPC_GetSound(ZRpc rpc, string url) => instance?.GetSound(url, AudioType.UNKNOWN);
+    
     #endregion
     
     #region Sending Messages to Discord

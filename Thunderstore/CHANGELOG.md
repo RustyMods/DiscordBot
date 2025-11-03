@@ -1,3 +1,12 @@
+# 1.2.5
+- prompts now are broadcasted and sent to discord as well
+- new discord command: `!prompt` [text] (uses server's key)
+- modified how messages sent from discord are parsed to allow for chat and command channel to share same ID
+- if chat and command channel are the same, I check if first argument is a command and try to run it, else runs as a chat message
+- fixed new day notifications not working on dedicated servers
+- updated manifest bepinex dependency
+- added beta feature: jobs - which can run commands on intervals (see readme for details)
+
 # 1.2.4
 - Added more details to events
 - Added new day notifications

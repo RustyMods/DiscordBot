@@ -23,12 +23,12 @@ namespace uGIF
 			this.height = height;
 		}
 
-		public Image (Image image)
-		{
-			pixels = image.pixels.Clone () as Color32[];
-			width = image.width;
-			height = image.height;
-		}
+		// public Image (Image image)
+		// {
+		// 	pixels = image.pixels.Clone () as Color32[];
+		// 	width = image.width;
+		// 	height = image.height;
+		// }
 
 		public Image (int width, int height)
 		{

@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
+using DiscordBot.Notices;
 using HarmonyLib;
 using JetBrains.Annotations;
 using Newtonsoft.Json;
@@ -67,8 +68,8 @@ public class InternalName : Attribute
 public class ChatAI : MonoBehaviour
 {
     public static ChatAI? instance;
-
     public event Action<string>? OnResponse;
+    public event Action<int, int, int>? OnMetadata;
     public event Action<string>? OnError;
     public event Action<string>? OnDeathQuip;
 
@@ -88,12 +89,35 @@ public class ChatAI : MonoBehaviour
         }
     }
     
+    [HarmonyPatch(typeof(ZNet), nameof(ZNet.OnNewConnection))]
+    private static class ZNet_OnNewConnection_Patch
+    {
+        [UsedImplicitly]
+        private static void Postfix(ZNetPeer peer) => peer.m_rpc.Register<string, string>(nameof(RPC_ChatAIMessage),RPC_ChatAIMessage);
+    }
+
+    public void BroadcastMessage(string username, string message)
+    {
+        if (!ZNet.instance) return;
+        foreach (ZNetPeer? peer in ZNet.instance.GetPeers()) peer.m_rpc.Invoke(nameof(RPC_ChatAIMessage), username, message);
+    }
+
+    public static void RPC_ChatAIMessage(ZRpc rpc, string username, string message) => DisplayChatMessage(username, message);
+
+    private static void DisplayChatMessage(string username, string message)
+    {
+        string text = $"</color><color=orange>{username}</color>: {message}";
+        Chat.instance.AddString(text);
+        Chat.instance.Show();
+    }
+    
     public void Awake()
     {
         instance = this;
         OnResponse += HandleResponse;
         OnError += HandleError;
         OnDeathQuip += HandleDeathQuip;
+        OnMetadata += HandleMetadata;
     }
 
     public void Update()
@@ -115,12 +139,20 @@ public class ChatAI : MonoBehaviour
     public void HandleResponse(string response)
     {
         Chat.instance.AddString($"<color=orange>[{DiscordBotPlugin.AIService}]</color>: {response}");
-        Chat.instance.m_hideTimer = 0.0f;
+        Chat.instance.Show();
+        BroadcastMessage($"[{DiscordBotPlugin.AIService}]", response);
+        Discord.instance?.SendMessage(Webhook.Chat, DiscordBotPlugin.AIService.ToString(), response);
+    }
+
+    public void HandleMetadata(int promptTokenCount, int candidatesTokenCount, int totalTokenCount)
+    {
+        var log = $"Prompt Token Count: {promptTokenCount}; Candidates Token Count: {candidatesTokenCount}; Total Token Count: {totalTokenCount}";
+        DiscordBotPlugin.LogDebug(log);
     }
 
     public void HandleError(string error)
     {
-        DiscordBotPlugin.LogWarning(error);
+        DiscordBotPlugin.LogError(error);
     }
 
     public void HandleDeathQuip(string quip)
@@ -200,7 +232,7 @@ public class ChatAI : MonoBehaviour
     private IEnumerator PromptOpenAI(string apiKey, string prompt, bool deathQuip)
     {
         isThinking = true;
-        string url = "https://api.openai.com/v1/chat/completions";
+        const string url = "https://api.openai.com/v1/chat/completions";
         
         GPTRequest gpt = new GPTRequest();
         gpt.model = GPTModel.Turbo.GetAttributeOfType<InternalName>().internalName;
@@ -229,7 +261,7 @@ public class ChatAI : MonoBehaviour
 
     public void ParseGPTResponse(string json, bool deathQuip)
     {
-        var response = JsonConvert.DeserializeObject<GPTResponse>(json);
+        GPTResponse? response = JsonConvert.DeserializeObject<GPTResponse>(json);
         if (response == null)
         {
             OnError?.Invoke("Failed to parse response");
@@ -276,7 +308,7 @@ public class ChatAI : MonoBehaviour
     
     public void ParseGeminiResponse(string json, bool deathQuip)
     {
-        var response = JsonConvert.DeserializeObject<GeminiResponse>(json);
+        GeminiResponse? response = JsonConvert.DeserializeObject<GeminiResponse>(json);
         if (response?.candidates == null || response.candidates.Length == 0)
         {
             OnError?.Invoke("Failed to parse gemini response");
@@ -284,6 +316,12 @@ public class ChatAI : MonoBehaviour
         else
         {
             string reply = response.candidates[0].content.parts[0].text.Trim();
+
+            if (response.UsageMetadata != null)
+            {
+                OnMetadata?.Invoke(response.UsageMetadata.promptTokenCount, response.UsageMetadata.candidatesTokenCount, response.UsageMetadata.totalTokenCount);
+            }
+            
             if (deathQuip) OnDeathQuip?.Invoke(reply);
             else OnResponse?.Invoke(reply);
         }
@@ -292,7 +330,7 @@ public class ChatAI : MonoBehaviour
     private IEnumerator PromptDeepSeek(string apiKey, string prompt, bool deathQuip)
     {
         isThinking = true;
-        string url = "https://api.deepseek.com/chat/completions";
+        const string url = "https://api.deepseek.com/chat/completions";
         
         DeepSeekRequest deepSeekRequest = new DeepSeekRequest();
         deepSeekRequest.model = DeepSeekModel.Chat.GetAttributeOfType<InternalName>().internalName;
@@ -321,7 +359,7 @@ public class ChatAI : MonoBehaviour
     
     public void ParseDeepSeekResponse(string json, bool deathQuip)
     {
-        var response = JsonConvert.DeserializeObject<DeepSeekResponse>(json);
+        DeepSeekResponse? response = JsonConvert.DeserializeObject<DeepSeekResponse>(json);
         if (response?.choices == null || response.choices.Length == 0)
         {
             OnError?.Invoke("Failed to parse DeepSeek response");
@@ -337,7 +375,7 @@ public class ChatAI : MonoBehaviour
     private IEnumerator PromptOpenRouter(string apiKey, string prompt, bool deathQuip)
     {
         isThinking = true;
-        string url = "https://openrouter.ai/api/v1/chat/completions";
+        const string url = "https://openrouter.ai/api/v1/chat/completions";
         
         OpenRouterRequest openRouterRequest = new OpenRouterRequest();
         openRouterRequest.model = DiscordBotPlugin.OpenRouterModel.GetAttributeOfType<InternalName>().internalName;
@@ -368,7 +406,7 @@ public class ChatAI : MonoBehaviour
     
     public void ParseOpenRouterResponse(string json, bool deathQuip)
     {
-        var response = JsonConvert.DeserializeObject<OpenRouterResponse>(json);
+        OpenRouterResponse? response = JsonConvert.DeserializeObject<OpenRouterResponse>(json);
         if (response?.choices == null || response.choices.Length == 0)
         {
             OnError?.Invoke("Failed to parse OpenRouter response");
@@ -438,6 +476,15 @@ public class ChatAI : MonoBehaviour
     public class GeminiResponse
     {
         public GeminiCandidate[] candidates;
+        public GeminiUsageMetadata? UsageMetadata;
+    }
+
+    [Serializable]
+    public class GeminiUsageMetadata
+    {
+        public int promptTokenCount;
+        public int candidatesTokenCount;
+        public int totalTokenCount;
     }
     [Serializable]
     public class GeminiCandidate

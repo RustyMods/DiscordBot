@@ -125,7 +125,6 @@ public class Screenshot : MonoBehaviour
             recordedFrame.Reinitialize(width, height);
             recordedFrame.SetPixels32(img.pixels);
             recordedFrame.Apply();
-
         }
         catch (Exception ex)
         {

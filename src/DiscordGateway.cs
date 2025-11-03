@@ -92,7 +92,7 @@ public class DiscordGatewayClient : MonoBehaviour
     private static void HandleError(string message)
     {
         if (!DiscordBotPlugin.LogErrors) return;
-        DiscordBotPlugin.LogWarning(message);
+        DiscordBotPlugin.LogError(message);
     }
     
     private static void HandleChatMessage(Message message)
@@ -396,14 +396,31 @@ public class DiscordGatewayClient : MonoBehaviour
             if (message == null) return;
             if (message.author?.bot == true || string.IsNullOrEmpty(message.content)) return;
 
-            if (message.channel_id == Channel.Commands.ToID())
+            if (Channel.Commands.ToID() == Channel.Chat.ToID() && message.channel_id == Channel.Commands.ToID())
             {
-                OnCommandReceived?.Invoke(message);
+                string[] args = message.content!.Split(' ');
+                string command = args[0].Trim();
+                if (DiscordCommands.IsCommand(command))
+                {
+                    OnCommandReceived?.Invoke(message);
+                }
+                else
+                {
+                    OnChatReceived?.Invoke(message);
+                }
             }
-            else if (message.channel_id == Channel.Chat.ToID())
+            else
             {
-                OnChatReceived?.Invoke(message);
+                if (message.channel_id == Channel.Commands.ToID())
+                {
+                    OnCommandReceived?.Invoke(message);
+                }
+                else if (message.channel_id == Channel.Chat.ToID())
+                {
+                    OnChatReceived?.Invoke(message);
+                }
             }
+            
         }
         catch (Exception e)
         {

@@ -146,10 +146,13 @@
         <Compile Include="Plugin.cs" />
         <Compile Include="Properties\AssemblyInfo.cs" />
         <Compile Include="src\ChatAI.cs" />
+        <Compile Include="src\ColorExtensions.cs" />
         <Compile Include="src\Gif\GIFEncoder.cs" />
         <Compile Include="src\Gif\Image.cs" />
         <Compile Include="src\Gif\LZWEncoder.cs" />
         <Compile Include="src\Gif\NeuQuant.cs" />
+        <Compile Include="src\Jobs\Job.cs" />
+        <Compile Include="src\Jobs\JobManager.cs" />
         <Compile Include="src\Notices\Events.cs" />
         <Compile Include="src\Notices\OnNewDay.cs" />
         <Compile Include="src\Recorder.cs" />

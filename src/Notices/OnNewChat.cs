@@ -23,4 +23,6 @@ public static class OnNewChat
             }
         }
     }
+
+    public static void Show(this Chat instance) => instance.m_hideTimer = 0.0f;
 }

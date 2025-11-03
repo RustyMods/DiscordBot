@@ -20,12 +20,14 @@ public static class Events
                 ["Position"] = $"{__instance.m_pos.x:0.0}, {__instance.m_pos.y:0.0}, {__instance.m_pos.z:0.0}",
                 ["Biome"] = WorldGenerator.instance.GetBiome(__instance.m_pos).ToString()
             };
+            List<string> creatures = new();
             for (var index = 0; index < __instance.m_spawn.Count; ++index)
             {
                 var spawn = __instance.m_spawn[index];
                 if (!spawn.m_prefab.TryGetComponent(out Character character)) continue;
-                details[$"Creature {index}"] = character.m_name;
+                creatures.Add(character.m_name);
             }
+            details["Creatures"] = string.Join(", ", creatures);
 
             Discord.instance?.SendEvent(Webhook.Notifications, DiscordBotPlugin.OnEventHooks, __instance.m_startMessage, Color.yellow, details);
         }

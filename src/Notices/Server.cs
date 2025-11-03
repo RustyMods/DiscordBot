@@ -2,7 +2,6 @@
 using System.Text;
 using HarmonyLib;
 using JetBrains.Annotations;
-using Newtonsoft.Json;
 using UnityEngine;
 
 namespace DiscordBot.Notices;
@@ -31,14 +30,40 @@ public static class Server
         }
     }
 
-    [HarmonyPatch(typeof(ZNet), nameof(ZNet.RPC_PeerInfo))]
-    private static class ZNet_RPC_PeerInfo_Patch
+    // [HarmonyPatch(typeof(ZNet), nameof(ZNet.RPC_PeerInfo))]
+    // private static class ZNet_RPC_PeerInfo_Patch
+    // {
+    //     [UsedImplicitly]
+    //     private static void Postfix(ZNet __instance, ZRpc rpc)
+    //     {
+    //         if (!DiscordBotPlugin.ShowOnLogin || !__instance.IsServer() || __instance.GetPeer(rpc) is not { } peer || !__instance.IsConnected(peer.m_uid) || string.IsNullOrWhiteSpace(peer.m_playerName)) return;
+    //         Discord.instance?.SendMessage(Webhook.Notifications, message: $"{peer.m_playerName} {Keys.HasJoined}", hooks: DiscordBotPlugin.OnLoginHooks);
+    //     }
+    // }
+    
+    
+
+    [HarmonyPatch(typeof(Game), nameof(Game.SpawnPlayer))]
+    private static class Player_OnSpawned_Patch
     {
         [UsedImplicitly]
-        private static void Postfix(ZNet __instance, ZRpc rpc)
+        private static void Postfix(Vector3 spawnPoint, Player __result)
         {
-            if (!DiscordBotPlugin.ShowOnLogin || !__instance.IsServer() || __instance.GetPeer(rpc) is not { } peer || !__instance.IsConnected(peer.m_uid) || string.IsNullOrWhiteSpace(peer.m_playerName)) return;
-            Discord.instance?.SendMessage(Webhook.Notifications, message: $"{peer.m_playerName} {Keys.HasJoined}", hooks: DiscordBotPlugin.OnLoginHooks);
+            if (!DiscordBotPlugin.ShowOnLogin || !Game.instance.m_firstSpawn) return;
+            var msg = $"{__result.GetPlayerName()} {Keys.HasJoined}";
+
+            if (DiscordBotPlugin.ShowCoordinates)
+            {
+                var coordinates = $"{spawnPoint.x:0.0}, {spawnPoint.y:0.0}, {spawnPoint.z:0.0}";
+                var biome = WorldGenerator.instance.GetBiome(spawnPoint).ToString();
+                var details = new Dictionary<string, string>(){["Coordinates"] = coordinates, ["Biome"] = biome};
+                
+                Discord.instance?.SendEvent(Webhook.Notifications, DiscordBotPlugin.OnLoginHooks, msg, ColorExtensions.SoftBlue, details);
+            }
+            else
+            {
+                Discord.instance?.SendMessage(Webhook.Notifications, message: msg, hooks: DiscordBotPlugin.OnLoginHooks);
+            }
         }
     }
     
@@ -49,7 +74,19 @@ public static class Server
         private static void Prefix(ZNet __instance, ZNetPeer peer)
         {
             if (!DiscordBotPlugin.ShowOnLogout || !__instance.IsServer() || string.IsNullOrWhiteSpace(peer.m_playerName)) return;
-            Discord.instance?.SendMessage(Webhook.Notifications, message: $"{peer.m_playerName} {Keys.HasLeft}", hooks: DiscordBotPlugin.OnLogoutHooks);
+            var msg = $"{peer.m_playerName} {Keys.HasLeft}";
+
+            if (DiscordBotPlugin.ShowCoordinates)
+            {
+                var coordinates = $"{peer.m_refPos.x:0.0}, {peer.m_refPos.y:0.0}, {peer.m_refPos.z:0.0}";
+                var biome = WorldGenerator.instance.GetBiome(peer.m_refPos).ToString();
+                var details = new Dictionary<string, string>(){["Coordinates"] = coordinates, ["Biome"] = biome};
+                Discord.instance?.SendEvent(Webhook.Notifications, DiscordBotPlugin.OnLogoutHooks, msg, ColorExtensions.CoolGray, details);
+            }
+            else
+            {
+                Discord.instance?.SendMessage(Webhook.Notifications, message: msg, hooks: DiscordBotPlugin.OnLogoutHooks);
+            }
         }
     }
 }

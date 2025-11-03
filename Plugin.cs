@@ -42,11 +42,6 @@ namespace DiscordBot
         Commands,
         DeathFeed
     }
-
-    public enum Event
-    {
-        Startup, Shutdown, Save, Raid, Login, Logout, Death
-    }
     
     public enum Channel { Chat, Commands }
     public enum ChatDisplay { Player, Bot }
@@ -55,7 +50,7 @@ namespace DiscordBot
     public class DiscordBotPlugin : BaseUnityPlugin
     {
         internal const string ModName = "DiscordBot";
-        internal const string ModVersion = "1.2.4";
+        internal const string ModVersion = "1.2.5";
         internal const string Author = "RustyMods";
         private const string ModGUID = Author + "." + ModName;
         private static readonly string ConfigFileName = ModGUID + ".cfg";
@@ -87,6 +82,7 @@ namespace DiscordBot
         private static ConfigEntry<Toggle> m_logoutNotice = null!;
         private static ConfigEntry<Toggle> m_eventNotice = null!;
         private static ConfigEntry<Toggle> m_newDayNotice = null!;
+        private static ConfigEntry<Toggle> m_coordinateDetails = null!;
         #endregion
         #region chat
         private static ConfigEntry<string> m_chatWebhookURL = null!;
@@ -124,6 +120,8 @@ namespace DiscordBot
         private static ConfigEntry<string> m_openRouterAPIKEY = null!;
         private static ConfigEntry<OpenRouterModel> m_openRouterModel = null!;
         #endregion
+
+        private static ConfigEntry<Toggle> m_enableJobs = null!;
         public static bool ShowServerStart => m_serverStartNotice.Value is Toggle.On;
         public static bool ShowChat => m_chatEnabled.Value is Toggle.On;
         public static bool LogErrors => m_logErrors.Value is Toggle.On;
@@ -134,6 +132,7 @@ namespace DiscordBot
         public static bool ShowOnLogout => m_logoutNotice.Value is Toggle.On;
         public static bool ShowEvent => m_eventNotice.Value is Toggle.On;
         public static bool ShowNewDay => m_newDayNotice.Value is Toggle.On;
+        public static bool ShowCoordinates => m_coordinateDetails.Value is Toggle.On;
         public static ChatDisplay ChatType => m_chatType.Value;
         public static string DiscordAdmins => m_discordAdmins.Value;
         public static void SetDiscordAdmins(string value) => m_discordAdmins.Value = value;
@@ -160,6 +159,7 @@ namespace DiscordBot
         public static OpenRouterModel OpenRouterModel => m_openRouterModel.Value;
         public static void LogWarning(string message) => DiscordBotLogger.LogWarning(message);
         public static void LogDebug(string message) => DiscordBotLogger.LogDebug(message);
+        public static void LogError(string message) => DiscordBotLogger.LogError(message);
 
         private static readonly Dictionary<string, Resolution> resolutions = new();
 
@@ -170,6 +170,8 @@ namespace DiscordBot
         public static List<string> OnLogoutHooks => m_logoutWebhook.Value.IsNullOrWhiteSpace() ? new List<string>() : new StringListConfig(m_logoutWebhook.Value).list;
         public static List<string> OnEventHooks => m_eventWebhook.Value.IsNullOrWhiteSpace() ? new List<string>() : new StringListConfig(m_eventWebhook.Value).list;
         public static List<string> OnNewDayHooks => m_newDayWebhook.Value.IsNullOrWhiteSpace() ? new List<string>() : new StringListConfig(m_newDayWebhook.Value).list;
+
+        public static bool JobsEnabled => m_enableJobs.Value is Toggle.On;
         
         // TODO : Figure out to make sure connecting peer is connecting to the right server
 
@@ -180,7 +182,7 @@ namespace DiscordBot
             m_instance = this;
             _serverConfigLocked = config("1 - General", "Lock Configuration", Toggle.On, "If on, the configuration is locked and can be changed by server admins only.");
             _ = ConfigSync.AddLockingConfigEntry(_serverConfigLocked);
-            m_logErrors = config("1 - General", "Log Errors", Toggle.Off, "If on, errors will log to console as warnings");
+            m_logErrors = config("1 - General", "Log Errors", Toggle.Off, "If on, caught errors will log to console");
             
             m_notificationWebhookURL = config("2 - Notifications", "Webhook URL", "", "Set webhook to receive notifications, like server start, stop, save etc...");
             m_serverStartNotice = config("2 - Notifications", "Startup", Toggle.On, "If on, bot will send message when server is starting");
@@ -190,7 +192,8 @@ namespace DiscordBot
             m_logoutNotice = config("2 - Notifications", "Logout", Toggle.On, "If on, bot will send message when player logs out");
             m_eventNotice = config("2 - Notifications", "Random Events", Toggle.On, "If on, bot will send message when random event starts");
             m_newDayNotice = config("2 - Notifications", "New Day", Toggle.Off, "If on, bot will send message when a new day begins");
-
+            m_coordinateDetails = config("2 - Notifications", "Show Coordinates", Toggle.On, "If on, coordinates will be added to login/logout notifications");
+            
             m_chatWebhookURL = config("3 - Chat", "Webhook URL", "", "Set discord webhook to display chat messages");
             m_chatChannelID = config("3 - Chat", "Channel ID", "", "Set channel ID to monitor for messages");
             m_chatEnabled = config("3 - Chat", "Enabled", Toggle.On, "If on, bot will send message when player shouts and monitor discord for messages");
@@ -202,6 +205,7 @@ namespace DiscordBot
             {
                 CustomDrawer = StringListConfig.Draw
             }));
+            m_enableJobs = config("4 - Commands", "Jobs", Toggle.On, "If on, jobs are enabled");
 
             m_botToken = config("5 - Setup", "BOT TOKEN", "", "Add bot token here, server only", false);
             
