@@ -10,8 +10,6 @@ namespace DiscordBot;
 
 public class Recorder : MonoBehaviour
 {
-    private static Camera camera => Utils.GetMainCamera();
-
     [Header("Discord message")]
     private string playerName = string.Empty;
     public string message = string.Empty;
@@ -34,6 +32,8 @@ public class Recorder : MonoBehaviour
     public void Awake()
     {
         instance = this;
+        
+        DiscordBotPlugin.LogDebug("Initializing GIF recorder");
     }
     
     public void OnDestroy()
@@ -51,6 +51,7 @@ public class Recorder : MonoBehaviour
         recordStartTime = Time.time;
         if (recordingCoroutine != null) StopCoroutine(recordingCoroutine);
         recordingCoroutine = StartCoroutine(Record());
+        DiscordBotPlugin.LogDebug("Starting gif recording");
     }
     
     private IEnumerator Record()
@@ -118,5 +119,7 @@ public class Recorder : MonoBehaviour
             return;
         }
         Discord.instance?.SendGifMessage(Webhook.DeathFeed, playerName, message, bytes, $"{DateTime.UtcNow:yyyyMMdd_HHmmss}.gif", thumbnail: thumbnail);
+        var worldName = ZNet.instance?.GetWorldName() ?? "Server";
+        Discord.instance?.BroadcastMessage(worldName, message, false);
     }
 }

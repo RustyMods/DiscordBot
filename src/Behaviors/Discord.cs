@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Text;
+using BepInEx.Logging;
 using DiscordBot.Notices;
 using HarmonyLib;
 using JetBrains.Annotations;
@@ -14,31 +15,18 @@ namespace DiscordBot;
 
 public class Discord : MonoBehaviour
 {
-    [HarmonyPatch(typeof(ZNet), nameof(ZNet.Awake))]
-    private static class ZNet_Awake_Patch
-    {
-        [UsedImplicitly]
-        private static void Postfix(ZNet __instance)
-        {
-            DiscordBotPlugin.m_instance.gameObject.AddComponent<Discord>();
-            DiscordBotPlugin.m_instance.gameObject.AddComponent<Screenshot>();
-            DiscordBotPlugin.m_instance.gameObject.AddComponent<Recorder>();
-            DiscordBotPlugin.m_instance.gameObject.AddComponent<ChatAI>();
-        }
-    }
     private static bool isServer => ZNet.instance?.IsServer() ?? false;
 
     public static Discord? instance;
     public event Action<Sprite>? OnImageDownloaded;
     public event Action<AudioClip>? OnAudioDownloaded;
     public event Action<string>? OnError;
+    public event Action<string>? OnLog;
     
-    private bool m_isDownloadingImage;
-    private bool m_isDownloadingSound;
-
     public AudioSource? m_soundSource;
 
-    private readonly Dictionary<string, AudioClip> m_downloadedAudioClips = new();
+    private bool m_isDownloadingImage;
+    private bool m_isDownloadingSound;
 
     public void Awake()
     {
@@ -46,6 +34,9 @@ public class Discord : MonoBehaviour
         OnImageDownloaded += HandleImage;
         OnError += HandleError;
         OnAudioDownloaded += HandleSound;
+        OnLog += HandleLog;
+        
+        DiscordBotPlugin.LogDebug("Initializing Discord Webhook");
     }
 
     private void Start()
@@ -72,23 +63,18 @@ public class Discord : MonoBehaviour
         m_soundSource.outputAudioMixerGroup = MusicMan.instance.m_musicMixer;
         m_soundSource.priority = 0;
         m_soundSource.bypassReverbZones = true;
-        m_soundSource.volume = MusicMan.instance.m_musicVolume;
+        m_soundSource.volume = 1f;
+        
+        DiscordBotPlugin.LogDebug("Initializing audio source");
     }
     
-    private static void HandleError(string message)
-    {
-        if (!DiscordBotPlugin.LogErrors) return;
-        DiscordBotPlugin.LogError(message);
-    }
-
-    private static void HandleImage(Sprite sprite)
-    {
-        ImageHud.instance?.Show(sprite);
-    }
-
+    private static void HandleError(string message) => DiscordBotPlugin.LogError(message);
+    private static void HandleImage(Sprite sprite) => ImageHud.instance?.Show(sprite);
+    private static void HandleLog(string message) => DiscordBotPlugin.records.Log(LogLevel.Info, message);
     private void HandleSound(AudioClip clip)
     {
         m_soundSource?.PlayOneShot(clip);
+        StartCoroutine(UnloadClip(clip));
     }
     
     #region Image Download
@@ -130,11 +116,7 @@ public class Discord : MonoBehaviour
     {
         if (m_isDownloadingSound) return;
         m_isDownloadingSound = true;
-        if (m_downloadedAudioClips.TryGetValue(url, out var clip))
-        {
-            OnAudioDownloaded?.Invoke(clip);
-        }
-        else if (IsDirectAudioUrl(url))
+        if (IsDirectAudioUrl(url))
         {
             StartCoroutine(DownloadSound(url, type));
         }
@@ -144,7 +126,7 @@ public class Discord : MonoBehaviour
         }
     }
     
-    private bool IsDirectAudioUrl(string url)
+    private static bool IsDirectAudioUrl(string url)
     {
         string lowerUrl = url.ToLower();
         return lowerUrl.EndsWith(".mp3") || 
@@ -174,11 +156,17 @@ public class Discord : MonoBehaviour
             }
             else
             {
-                m_downloadedAudioClips[url] = clip;
                 OnAudioDownloaded?.Invoke(clip);
             }
         }
         m_isDownloadingSound = false;
+    }
+
+    private static IEnumerator UnloadClip(AudioClip? clip)
+    {
+        if (clip is null) yield break;
+        yield return new WaitForSeconds(clip.length);
+        Destroy(clip);
     }
     #endregion
     
@@ -190,22 +178,24 @@ public class Discord : MonoBehaviour
         [UsedImplicitly]
         private static void Postfix(ZNetPeer peer)
         {
-            peer.m_rpc.Register<string, string>(nameof(RPC_ClientBotMessage),RPC_ClientBotMessage);
+            peer.m_rpc.Register<string, string, bool>(nameof(RPC_ClientBotMessage),RPC_ClientBotMessage);
             peer.m_rpc.Register<string>(nameof(RPC_GetSound),RPC_GetSound);
         }
     }
 
-    public void BroadcastMessage(string username, string message)
+    public void BroadcastMessage(string username, string message, bool showDiscord = true)
     {
         if (!ZNet.instance || !ZNet.m_isServer) return;
-        foreach (var peer in ZNet.instance.GetPeers()) peer.m_rpc.Invoke(nameof(RPC_ClientBotMessage), username, message);
+        foreach (var peer in ZNet.instance.GetPeers()) peer.m_rpc.Invoke(nameof(RPC_ClientBotMessage), username, message, showDiscord);
+        if (!Player.m_localPlayer) return;
+        DisplayChatMessage(username, message, showDiscord);
     }
 
-    public static void RPC_ClientBotMessage(ZRpc rpc, string username, string message) => DisplayChatMessage(username, message);
-    public static void DisplayChatMessage(string userName, string message)
+    public static void RPC_ClientBotMessage(ZRpc rpc, string username, string message, bool showDiscord) => DisplayChatMessage(username, message);
+    public static void DisplayChatMessage(string userName, string message, bool showDiscord = true)
     {
-        string text = $"<color=#{ColorUtility.ToHtmlStringRGB(new Color(0f, 0.5f, 0.5f, 1f))}>[Discord]</color><color=orange>{userName}</color>: {message}";
-        Chat.instance.AddString(text);
+        string text = $"{(showDiscord ? $"<color=#{ColorUtility.ToHtmlStringRGB(new Color(0f, 0.5f, 0.5f, 1f))}>[Discord]</color>" : "")}<color=orange>{userName}</color>: {message}";
+        Chat.instance.AddString(Localization.instance.Localize(text));
         Chat.instance.Show();
     }
 
@@ -319,6 +309,11 @@ public class Discord : MonoBehaviour
                 string error = $"Failed to send message: {request.error} - {request.downloadHandler.text}";
                 OnError?.Invoke(error);
             }
+            else
+            {
+                
+                OnLog?.Invoke($"Sent webhook message: {url.ObfuscateURL()} - username: {data.username ?? "null"} - content: {data.content ?? "null"}");
+            }
         }
     }
     
@@ -345,6 +340,10 @@ public class Discord : MonoBehaviour
             string error = $"Failed to send message: {request.error} - {request.downloadHandler.text}";
             OnError?.Invoke(error);
         }
+        else
+        {
+            OnLog?.Invoke($"Sent webhook message: {webhookURL.ObfuscateURL()} - username: {data.username ?? "null"} - content: {data.content ?? "null"} - Embed content: {data.embeds?.Length ?? 0}");
+        }
     }
 
     private IEnumerator SendWebhookAttachment(DiscordWebhookData data, string webhookURL, MultipartFormFileSection attachment)
@@ -368,6 +367,10 @@ public class Discord : MonoBehaviour
         {
             string error = $"Failed to send message: {request.error} - {request.downloadHandler.text}";
             OnError?.Invoke(error);
+        }
+        else
+        {
+            OnLog?.Invoke($"Sent webhook with attachments ({formData.Count}): {webhookURL.ObfuscateURL()} - username: {data.username ?? "null"} - content: {data.content ?? "null"} - Embed content: {data.embeds?.Length ?? 0}");
         }
     }
     

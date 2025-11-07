@@ -7,9 +7,9 @@ Enables two-way communication between your Valheim server and Discord channels.
 - 🗨️ **Chat Integration**: Send messages between Discord and in-game chat
 - 🤖 **Discord Commands**: Execute server commands from Discord
 - 📢 **Server Notifications**: Get notified when the server starts up
-- Death GIF / Screenshot
-- Screenshot to Discord chat command / hotkey
-- ChatAI
+- 💻 **Death GIF / Screenshot**: On player death, send gif or image of event along side a death quip
+- ✨ **Screenshot** to Discord chat command / hotkey
+- 📱 **ChatAI**: Prompt AI service and improve death quips
 
 ## Prerequisites
 

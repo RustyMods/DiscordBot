@@ -28,6 +28,8 @@ public class Screenshot : MonoBehaviour
     {
         instance = this;
         recordedFrame = new Texture2D(width, height, TextureFormat.RGB24, false);
+        
+        DiscordBotPlugin.LogDebug("Initializing screenshotter");
     }
 
     public void Start()
@@ -91,6 +93,7 @@ public class Screenshot : MonoBehaviour
         thumbnail = avatar;
         isCapturing = true;
         StartCoroutine(DelayedCaptureFrame());
+        DiscordBotPlugin.LogDebug("Starting death screenshot");
     }
 
     public void HideHud()
@@ -149,11 +152,14 @@ public class Screenshot : MonoBehaviour
     {
         isCapturing = true;
         StartCoroutine(DelayedSelfie());
+        DiscordBotPlugin.LogDebug("Starting selfie capture");
     }
         
     public void SendToDiscord(byte[] data)
     {
         Discord.instance?.SendImageMessage(Webhook.DeathFeed, playerName, message, data, $"{DateTime.UtcNow:yyyyMMdd_HHmmss}.png", thumbnail: thumbnail);
+        var worldName = ZNet.instance?.GetWorldName() ?? "Server";
+        Discord.instance?.BroadcastMessage(worldName, message, false);
     }
     public void SendSelfieToDiscord(byte[] bytes)
     {

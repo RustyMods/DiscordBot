@@ -341,8 +341,8 @@ public static class DeathQuips
         {
             foreach (var file in files)
             {
-                var name = Path.GetFileNameWithoutExtension(file);
-                var list = File.ReadAllLines(file);
+                string? name = Path.GetFileNameWithoutExtension(file);
+                string[] list = File.ReadAllLines(file);
                 switch (name)
                 {
                     case nameof(Templates):
@@ -372,6 +372,8 @@ public static class DeathQuips
         watcher.SynchronizingObject = ThreadingHelper.SynchronizingObject;
         watcher.Changed += OnChanged;
         watcher.Created += OnChanged;
+        
+        DiscordBotPlugin.LogDebug("Initializing death quips");
     }
 
     private static void OnChanged(object sender, FileSystemEventArgs e)

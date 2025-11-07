@@ -1,3 +1,12 @@
+# 1.2.6
+- death quips are now shown in-game
+- new config `detailed logs`
+- discord bot will write detailed logs on configs/DiscordBot folder on game shutdown
+- new config `use server key` for ChatAI, if client does not have key and config is `on` then will try to use server's API key
+- fixed login message not showing if logout --> login by resetting flag on logout
+- added config to choose gemini model
+- added notification config for when player uses cheat terminal console command
+
 # 1.2.5
 - prompts now are broadcasted and sent to discord as well
 - new discord command: `!prompt` [text] (uses server's key)

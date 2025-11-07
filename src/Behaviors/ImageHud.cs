@@ -3,7 +3,6 @@ using JetBrains.Annotations;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using Object = UnityEngine.Object;
 
 namespace DiscordBot;
 
@@ -54,6 +53,8 @@ public class ImageHud : MonoBehaviour
         m_bkg.preserveAspect = true;
         m_bkg.type = Image.Type.Simple;
         m_bkg.color = Color.clear;
+        
+        DiscordBotPlugin.LogDebug("Initializing HUD imager");
     }
 
     public void Update()
@@ -76,6 +77,7 @@ public class ImageHud : MonoBehaviour
         if (m_currentColor == Color.clear)
         {
             m_fading = false;
+            m_bkg.sprite = null;
         }
     }
 

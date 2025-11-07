@@ -13,6 +13,7 @@ namespace DiscordBot;
 
 public enum AIService
 {
+    None,
     ChatGPT,
     Gemini,
     DeepSeek,
@@ -32,6 +33,7 @@ public enum GeminiModel
 {
     [InternalName("gemini-2.0-flash")] Flash2_0,
     [InternalName("gemini-2.5-flash")] Flash2_5,
+    [InternalName("gemini-2.0-pro")] Pro2_0,
     [InternalName("gemini-2.5-pro")] Pro2_5
 }
 [PublicAPI]
@@ -59,7 +61,6 @@ public enum OpenRouterModel
 public class InternalName : Attribute
 {
     public readonly string internalName;
-
     public InternalName(string internalName)
     {
         this.internalName = internalName;
@@ -100,6 +101,8 @@ public class ChatAI : MonoBehaviour
     {
         if (!ZNet.instance) return;
         foreach (ZNetPeer? peer in ZNet.instance.GetPeers()) peer.m_rpc.Invoke(nameof(RPC_ChatAIMessage), username, message);
+        if (!Player.m_localPlayer) return;
+        DisplayChatMessage(username, message);
     }
 
     public static void RPC_ChatAIMessage(ZRpc rpc, string username, string message) => DisplayChatMessage(username, message);
@@ -107,7 +110,7 @@ public class ChatAI : MonoBehaviour
     private static void DisplayChatMessage(string username, string message)
     {
         string text = $"</color><color=orange>{username}</color>: {message}";
-        Chat.instance.AddString(text);
+        Chat.instance.AddString(Localization.instance.Localize(text));
         Chat.instance.Show();
     }
     
@@ -118,6 +121,8 @@ public class ChatAI : MonoBehaviour
         OnError += HandleError;
         OnDeathQuip += HandleDeathQuip;
         OnMetadata += HandleMetadata;
+        
+        DiscordBotPlugin.LogDebug("Initializing Chat AI");
     }
 
     public void Update()
@@ -138,8 +143,6 @@ public class ChatAI : MonoBehaviour
 
     public void HandleResponse(string response)
     {
-        Chat.instance.AddString($"<color=orange>[{DiscordBotPlugin.AIService}]</color>: {response}");
-        Chat.instance.Show();
         BroadcastMessage($"[{DiscordBotPlugin.AIService}]", response);
         Discord.instance?.SendMessage(Webhook.Chat, DiscordBotPlugin.AIService.ToString(), response);
     }
@@ -163,7 +166,7 @@ public class ChatAI : MonoBehaviour
 
     public void Ask(string prompt, bool deathQuip = false)
     {
-        switch (DiscordBotPlugin.AIService)
+        switch (DiscordBotPlugin.GetAIServiceOption())
         {
             case AIService.ChatGPT:
                 AskOpenAI(prompt, deathQuip);
@@ -180,53 +183,58 @@ public class ChatAI : MonoBehaviour
         }
     }
 
-    public static bool HasKey() => DiscordBotPlugin.AIService switch
+    public static bool HasKey() => DiscordBotPlugin.GetAIServiceOption() switch
     {
-        AIService.ChatGPT => !string.IsNullOrEmpty(DiscordBotPlugin.ChatGPT_KEY),
-        AIService.Gemini => !string.IsNullOrEmpty(DiscordBotPlugin.Gemini_KEY),
-        AIService.DeepSeek => !string.IsNullOrEmpty(DiscordBotPlugin.DeepSeek_KEY),
-        AIService.OpenRouter => !string.IsNullOrEmpty(DiscordBotPlugin.OpenRouter_KEY),
+        AIService.ChatGPT => !string.IsNullOrEmpty(DiscordBotPlugin.GetChatGPTKey()),
+        AIService.Gemini => !string.IsNullOrEmpty(DiscordBotPlugin.GetGeminiKey()),
+        AIService.DeepSeek => !string.IsNullOrEmpty(DiscordBotPlugin.GetDeepSeekKey()),
+        AIService.OpenRouter => !string.IsNullOrEmpty(DiscordBotPlugin.GetOpenRouterKey()),
         _ => false
     };
     
     public void AskOpenAI(string prompt, bool deathQuip = false)
     {
-        if (string.IsNullOrEmpty(DiscordBotPlugin.ChatGPT_KEY))
+        string key = DiscordBotPlugin.GetChatGPTKey();
+        
+        if (string.IsNullOrEmpty(key))
         {
             OnError?.Invoke("OpenAI API token not set");
             return;
         }
-        StartCoroutine(PromptOpenAI(DiscordBotPlugin.ChatGPT_KEY, prompt, deathQuip));
+        StartCoroutine(PromptOpenAI(key, prompt, deathQuip));
     }
 
     public void AskGemini(string prompt, bool deathQuip = false)
     {
-        if (string.IsNullOrEmpty(DiscordBotPlugin.Gemini_KEY))
+        var key = DiscordBotPlugin.GetGeminiKey();
+        if (string.IsNullOrEmpty(key))
         {
             OnError?.Invoke("Gemini API token not set");
             return;
         }
-        StartCoroutine(PromptGemini(DiscordBotPlugin.Gemini_KEY, prompt, deathQuip));
+        StartCoroutine(PromptGemini(key, prompt, deathQuip));
     }
 
     public void AskDeepSeek(string prompt, bool deathQuip = false)
     {
-        if (string.IsNullOrEmpty(DiscordBotPlugin.DeepSeek_KEY))
+        var key = DiscordBotPlugin.GetDeepSeekKey();
+        if (string.IsNullOrEmpty(key))
         {
             OnError?.Invoke("DeepSeek API token not set");
             return;
         }
-        StartCoroutine(PromptDeepSeek(DiscordBotPlugin.DeepSeek_KEY, prompt, deathQuip));
+        StartCoroutine(PromptDeepSeek(key, prompt, deathQuip));
     }
     
     public void AskOpenRouter(string prompt, bool deathQuip = false)
     {
-        if (string.IsNullOrEmpty(DiscordBotPlugin.OpenRouter_KEY))
+        var key = DiscordBotPlugin.GetOpenRouterKey();
+        if (string.IsNullOrEmpty(key))
         {
             OnError?.Invoke("OpenRouter API token not set");
             return;
         }
-        StartCoroutine(PromptOpenRouter(DiscordBotPlugin.OpenRouter_KEY, prompt, deathQuip));
+        StartCoroutine(PromptOpenRouter(key, prompt, deathQuip));
     }
     
     private IEnumerator PromptOpenAI(string apiKey, string prompt, bool deathQuip)
@@ -277,7 +285,7 @@ public class ChatAI : MonoBehaviour
     private IEnumerator PromptGemini(string apiKey, string prompt, bool deathQuip)
     {
         isThinking = true;
-        string model = GeminiModel.Flash2_0.GetAttributeOfType<InternalName>().internalName;
+        string model = DiscordBotPlugin.GetGeminiOption().GetAttributeOfType<InternalName>().internalName;
         string url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
         
         GeminiRequest geminiRequest = new GeminiRequest();
@@ -378,7 +386,7 @@ public class ChatAI : MonoBehaviour
         const string url = "https://openrouter.ai/api/v1/chat/completions";
         
         OpenRouterRequest openRouterRequest = new OpenRouterRequest();
-        openRouterRequest.model = DiscordBotPlugin.OpenRouterModel.GetAttributeOfType<InternalName>().internalName;
+        openRouterRequest.model = DiscordBotPlugin.GetOpenRouterOption().GetAttributeOfType<InternalName>().internalName;
         openRouterRequest.messages.Add(new OpenRouterMessage("user", prompt));
 
         string json = JsonConvert.SerializeObject(openRouterRequest);

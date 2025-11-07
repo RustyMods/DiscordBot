@@ -48,11 +48,18 @@ public static class OnDeath
                     void delayedMessage(string msg)
                     {
                         Discord.instance?.SendEmbedMessage(Webhook.DeathFeed, $"{__instance.GetPlayerName()} {Keys.HasDied}", msg, thumbnail: avatar);
+                        var worldName = ZNet.instance?.GetWorldName() ?? "Server";
+                        Discord.instance?.BroadcastMessage(worldName, msg, false);
                         if (ChatAI.instance) ChatAI.instance.OnDeathQuip -= delayedMessage;
                     }
                     ChatAI.instance.OnDeathQuip += delayedMessage;
                 }
-                else Discord.instance?.SendEmbedMessage(Webhook.DeathFeed, $"{__instance.GetPlayerName()} {Keys.HasDied}", quip, thumbnail: avatar);
+                else
+                {
+                    Discord.instance?.SendEmbedMessage(Webhook.DeathFeed, $"{__instance.GetPlayerName()} {Keys.HasDied}", quip, thumbnail: avatar);
+                    var worldName = ZNet.instance?.GetWorldName() ?? "Server";
+                    Discord.instance?.BroadcastMessage(worldName, quip, false);
+                }
             }
         }
     }

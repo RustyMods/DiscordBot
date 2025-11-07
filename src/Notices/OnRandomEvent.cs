@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace DiscordBot.Notices;
 
-public static class Events
+public static class OnRandomEvent
 {
     [HarmonyPatch(typeof(RandomEvent), nameof(RandomEvent.OnStart))]
     private static class RandomEvent_OnStart_Patch

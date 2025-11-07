@@ -13,25 +13,17 @@ public class JobManager : MonoBehaviour
     public static readonly List<Job> jobs = new();
     private static readonly Dictionary<string, Job> fileJobMap = new();
     private static readonly Dir JobDir = new Dir(DiscordBotPlugin.directory.Path, "Jobs");
-    
-    [HarmonyPatch(typeof(ZNet), nameof(ZNet.Awake))]
-    private static class ZNet_Awake_Patch
-    {
-        [UsedImplicitly]
-        private static void Postfix(ZNet __instance)
-        {
-            if (!__instance.IsServer()) return;
-            DiscordBotPlugin.m_instance.gameObject.AddComponent<JobManager>();
-        }
-    }
     public void Awake()
     {
         Read();
+        SetupFileWatch();
+        
+        DiscordBotPlugin.LogDebug("Initializing jobs");
     }
 
     public void Read()
     {
-        foreach (string file in JobDir.GetFiles("*.yml"))
+        foreach (string file in JobDir.GetFiles("*.yml", true))
         {
             if (!Parse(file, out string command, out float interval, out string[] args)) continue;
             var job = new Job(command, interval, args);

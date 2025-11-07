@@ -7,41 +7,38 @@ Enables two-way communication between your Valheim server and Discord channels.
 - 🗨️ **Chat Integration**: Send messages between Discord and in-game chat
 - 🤖 **Discord Commands**: Execute server commands from Discord
 - 📢 **Server Notifications**: Get notified when the server starts up
-- 🔧 **Configurable**: Customize polling intervals, channels, and webhooks
+- 💻 **Death GIF / Screenshot**: On player death, send gif or image of event along side a death quip
+- ✨ **Screenshot** to Discord chat command / hotkey
+- 📱 **ChatAI**: Prompt AI service and improve death quips
 
 ## Prerequisites
 
-- **BepInEx** installed on your Valheim server
+- **BepInEx** installed
+- [JsonDotNet](https://thunderstore.io/c/valheim/p/ValheimModding/JsonDotNET) installed
 - **Discord Webhooks** configured for your server
 - **Discord Bot Token** (If you want your discord server to be able to send messages into your game)
+- Required on `client` and `server`
 
 ## Installation
 
-### 1. Install BepInEx
+### Discord Setup
 
-If you haven't already installed BepInEx:
+#### How to create Discord Bot
 
-1. Download BepInEx from [GitHub releases](https://github.com/BepInEx/BepInEx/releases)
-2. Extract the contents to your Valheim server directory
-3. Run the server once to generate BepInEx folders
-
-### 2. Discord Setup
-
-### How to create Discord Bot
-
-1. Create a Discord Application
+1. **Create a Discord Application**
     - Go to the [Discord Developer Portal](https://discord.com/developers/applications)
     - Click "New Application" (top-right)
     - Give your application a name (e.g. ValheimBot) and click "Create".
-2. Add a Bot to the Application
+2. **Add a `Bot` to the Application**
     - In the left sidebar, click "Bot"
     - Click "Add Bot" ----> confirm by clicking "Yes, do it!"
     - You now have a bot user attached to your application.
-3. Copy the Bot Token
+    - You must enable `Message Content Intent`
+3. **Copy the `Bot Token`**
     - On the Bot page, under the "Token" section, click "Reset Token" (or "Copy" if it is already shown).
     - Confirm, then copy the generated token.
     - Keep this token secret!, if it leaks, click "Reset Token" to generate a new one
-4. Invite the Bot to your Server
+4. **Invite the Bot to your Discord Server**
     - In the sidebar, click "O2Auth2" ----> "URL Generator".
     - Under **SCOPES**, check `bot`
     - Under **BOT PERMISSIONS**, check the permissions your bot will need
@@ -78,13 +75,12 @@ You'll need Discord Channel IDs for the bot to read messages:
     - Select "Copy ID"
     - Save these IDs for your configuration
 
-### 3. Configure the Plugin
+### Configure the Plugin
 
 After first run, configuration files will be generated in `BepInEx/config/`. Edit the Discord Bot config file to set up your:
 
 - Channel IDs
 - Webhook URLs
-- Polling intervals
 - Bot Token [SERVER ONLY]
 
 ## Configurations
@@ -149,7 +145,7 @@ Discord Admin = .rusty,.warp
 
 [5 - Setup]
 ## Add bot token here, server only
-BOT TOKEN =
+BOT TOKEN = 
 
 
 ```
@@ -160,6 +156,7 @@ BOT TOKEN =
 
 - Any message sent as a `shout` in the in-game chat will appear in your configured Discord chat channel
 - Server events (like startup) will be posted to the notification channel
+- Death events will be posted to the death feed channel
 
 ### Discord to In-Game
 
@@ -169,9 +166,9 @@ BOT TOKEN =
 ### Discord Commands
 
 Send commands in your designated command channel:
-- Commands should start with a command prefix (configurable)
-- Example: `listplayers` to list online players
-- Example: `save` to save the world
+- Commands should start with a command prefix `!`
+- Example: `!listplayers` to list online players
+- Example: `!save` to save the world
 
 ## Commands
 
@@ -327,6 +324,87 @@ Send commands in your designated command channel:
 **Usage:** `!removeadmin <string:Username>`
 
 ---
+
+### ChatAI
+
+#### 🤖 AI Chat Integration
+The plugin supports multiple AI providers for enhanced chat interactions and death quips.
+Each client configures their own API keys, ensuring token usage and costs remain separate.
+
+#### 🔑 Keys
+- Client-Managed Keys: Each user provides their own API keys
+- Enhanced Death Quips: AI-generated unique death messages when API keys are configured
+
+Multiple Providers: Choose from 4 different AI services
+
+#### 💡 Provider Recommendations & Notes
+Free Tier Options:
+- Gemini - Offers limited free usage through Google AI Studio, making it the best choice for cost-free experimentation
+- OpenRouter - Provides access to several free models from various providers
+
+Paid Services:
+- ChatGPT - Requires paid OpenAI API credits (no free tier available)
+- DeepSeek - While competitively priced, requires API credit purchase
+
+Haven't fully tested longevity of this feature, but can be a fun gimmick for a little while
+```
+[8 - AI]
+
+## Set which Artificial Intelligence API to use [Not Synced with Server]
+# Setting type: AIService
+# Default value: Gemini
+# Acceptable values: ChatGPT, Gemini, DeepSeek, OpenRouter
+Provider = Gemini
+
+## Set ChatGPT key [Not Synced with Server]
+# Setting type: String
+# Default value:
+ChatGPT =
+
+## Set Gemini key [Not Synced with Server]
+# Setting type: String
+# Default value:
+Gemini = 
+
+## Set DeepSeek key [Not Synced with Server]
+# Setting type: String
+# Default value:
+DeepSeek = 
+
+## Set OpenRouter key [Not Synced with Server]
+# Setting type: String
+# Default value:
+OpenRouter = 
+
+## Set OpenRouter Model [Not Synced with Server]
+# Setting type: OpenRouterModel
+# Default value: Claude3_5Sonnet
+# Acceptable values: Claude3_5Sonnet, GeminiFlashFree, Llama31_8B, Llama31_70B, WizardLM8x22B, GPT4oMini, DeepSeekChat
+OpenRouter Model = Claude3_5Sonnet
+```
+
+### Jobs [beta]
+
+Job allows to invoke discord commands on a set interval, beginning whenever the server starts.
+
+Format:
+```yml
+command: !shout
+interval: 1000.0
+args: This is a reoccurring shout message from the server every 16 minutes
+```
+
+Example:
+- List current active players every 30 minutes
+```yml
+command: !listplayers
+interval: 1800
+```
+- Save world and active player profiles, every 1 hour
+```yml
+command: !save
+interval: 3600
+ ```
 
 ### Notes
 

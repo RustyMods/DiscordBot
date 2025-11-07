@@ -1,10 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
-using BepInEx;
 
 namespace DiscordBot;
-
 public static class Keys
 {
     private static readonly Dictionary<string, string> keys = new();

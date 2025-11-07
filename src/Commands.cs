@@ -38,8 +38,12 @@ public static class DiscordCommands
     private static readonly List<CommandTooltip> m_tooltips = new();
     public static bool loaded;
     public static bool IsCommand(string input) => m_commands.ContainsKey(input);
+    
+    private static readonly List<Terminal.ConsoleCommand> terminalCommands = new();
+    public static bool IsPluginCommand(this Terminal.ConsoleCommand command) => terminalCommands.Contains(command);
     public static void Setup()
     {
+        DiscordBotPlugin.LogDebug("Initializing discord commands");
         var selfie = new Terminal.ConsoleCommand("selfie", "Screenshots current game view", _ =>
         {
             Screenshot.instance?.StartSelfie();
@@ -56,12 +60,17 @@ public static class DiscordCommands
                          "Player message: " + prompt;
             ChatAI.instance?.Ask(msg);
         });
+        
+        terminalCommands.Add(selfie);
+        terminalCommands.Add(prompt);
+        
         var help = new DiscordCommand("!help", "List of commands", _ =>
         {
             // max 25 embed elements in a single message
             const int itemsPerEmbed = 25;
             List<CommandTooltip> adminCommands = new();
             List<CommandTooltip> otherCommands = new();
+            
             foreach (var tooltip in m_tooltips)
             {
                 if (tooltip.m_adminOnly) adminCommands.Add(tooltip);
@@ -124,6 +133,11 @@ public static class DiscordCommands
 
         var discordPrompt = new DiscordCommand("!prompt", "Prompt server AI service, `prompt`", args =>
         {
+            if (!DiscordBotPlugin.AllowDiscordPrompt)
+            {
+                Discord.instance?.SendMessage(Webhook.Commands, ZNet.instance.GetWorldName(), "Prompt command disabled".Format(TextFormat.Bold));
+                return;
+            }
             if (args.Length < 3) return;
             var query = string.Join(" ", args, 1, args.Length - 2);
             var author = args.Last();
@@ -132,7 +146,6 @@ public static class DiscordCommands
                          "Be playful, sometimes cheeky, but always entertaining. " +
                          "Adapt to player prompt, if they ask a question, be useful" +
                          "Player message: " + query;
-            if (Player.m_localPlayer) Discord.DisplayChatMessage(author, query);
             Discord.instance?.BroadcastMessage(author, query);
             ChatAI.instance?.Ask(msg);
         }, getAuthor: true, emoji:"phone");
@@ -217,19 +230,11 @@ public static class DiscordCommands
             Discord.instance?.SendTableEmbed(Webhook.Commands, "List of active players", content);
         }, adminOnly: true, emoji:"dragon");
 
-        var kick = new DiscordCommand("!kick", "Kicks player from server, `playername`", args =>
+        var kick = new DiscordCommand("!kick", "Kicks player from server, `player name or ip or userID`", args =>
         {
             if (args.Length < 2) return;
-            var playerName = args[1].Trim();
-            if (ZNet.instance.GetPeerByPlayerName(playerName) is not { } peer)
-            {
-                Discord.instance?.SendMessage(Webhook.Commands, message: "Failed to find " + playerName);
-            }
-            else
-            {
-                ZNet.instance.Disconnect(peer);
-                Discord.instance?.SendMessage(Webhook.Commands, message: $"Kicked {playerName} from server !");
-            }
+            var id = args[1].Trim();
+            ZNet.instance.Kick(id);
         }, adminOnly:true, emoji:"x");
 
         var give = new DiscordCommand("!give", "Adds item directly into player inventory, `player name` `item name` `amount` `quality?` `variant?`", args =>
@@ -428,13 +433,6 @@ public static class DiscordCommands
             ZNet.instance.Save(true, true, true);
         }, adminOnly: true, emoji:"save");
 
-        // var shutDown = new DiscordCommand("!shutdown", "Save player profiles, save world and shutdown, bot cannot start server", _ =>
-        // {
-        //     ZNet.instance.SaveOtherPlayerProfiles();
-        //     ZNet.instance.Shutdown();
-        //     Application.Quit();
-        // }, adminOnly: true, emoji:"stop");
-
         var message = new DiscordCommand("!message", "Broadcast message to all players which shows up center of screen", args =>
         {
             var message = string.Join(" ", args.Skip(1));
@@ -447,8 +445,7 @@ public static class DiscordCommands
                 var author = ZNet.instance?.GetWorldName() ?? "Server";
                 var msg = string.Join(" ", args.Skip(1));
                 Discord.instance?.BroadcastMessage(author, msg);
-                if (Player.m_localPlayer) Discord.DisplayChatMessage(author, msg);
-            }, adminOnly:true);
+            }, adminOnly:true, emoji:"wave");
 
         var image = new DiscordCommand("!image", "Broadcast image to all players which takes over entire screen",
             args =>
@@ -834,8 +831,8 @@ public static class DiscordCommands
             {
                 if (args.Length < 3) return;
                 var playerName = args[1].Trim();
-                var text = args[2].Trim();
-                var author = args[3].Trim();
+                var text = string.Join(" ", args, 2, args.Length - 3).Trim();
+                var author = args.Last().Trim();
                 if (Player.m_localPlayer && Player.m_localPlayer.GetPlayerName() == playerName)
                 {
                     Discord.DisplayChatMessage(author, text);
@@ -855,7 +852,7 @@ public static class DiscordCommands
             var url = args[1].Trim();
             if (Player.m_localPlayer) Discord.instance?.GetSound(url, AudioType.UNKNOWN);
             Discord.BroadcastSound(url);
-        }, adminOnly: true);
+        }, adminOnly: true, emoji:"guitar");
         var mods = new DiscordCommand("!mods", "List of plugin installed, `player name?`", args =>
             {
                 if (args.Length > 1)
@@ -900,8 +897,30 @@ public static class DiscordCommands
                 }
                 Discord.instance?.SendEmbedMessage(Webhook.Commands, $"{Game.instance.GetPlayerProfile().m_playerName} installed plugins", stringBuilder.ToString());
             }, emoji: "guitar");
-        
-        
+        var ban = new DiscordCommand("!ban", "Ban player, `player name or ip or userID`", args =>
+        {
+            if (args.Length < 2) return;
+            var id = args[1].Trim();
+            ZNet.instance.Ban(id);
+        }, adminOnly: true, emoji: "stop");
+        var unban = new DiscordCommand("!unban", "Unban player, `player name or ip or userID`", args =>
+            {
+                if (args.Length < 2) return;
+                var id = args[1].Trim();
+                ZNet.instance.Unban(id);
+            },
+            adminOnly: true, emoji: "check");
+        var printBanned =
+            new DiscordCommand("!listbanned", "List of banned users", args =>
+            {
+                var list = ZNet.instance.m_bannedList.GetList();
+                StringBuilder sb = new();
+                foreach (string name in list)
+                {
+                    sb.Append($"`{name}`\n");
+                }
+                Discord.instance?.SendEmbedMessage(Webhook.Commands, ZNet.instance.GetWorldName(), sb.ToString());
+            }, adminOnly: true, emoji: "lock");
         loaded = true;
         foreach (var externalCommands in API.m_queue)
         {

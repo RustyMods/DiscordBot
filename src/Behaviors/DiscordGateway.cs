@@ -5,6 +5,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using BepInEx.Logging;
 using HarmonyLib;
 using JetBrains.Annotations;
 using Newtonsoft.Json;
@@ -16,18 +17,6 @@ namespace DiscordBot;
 
 public class DiscordGatewayClient : MonoBehaviour
 {
-    [HarmonyPatch(typeof(ZNet), nameof(ZNet.Awake))]
-    private static class ZNet_Awake_Patch
-    {
-        [UsedImplicitly]
-        private static void Postfix(ZNet __instance)
-        {
-            if (!__instance.IsServer()) return;
-            // only server should create websocket to read messages
-            DiscordBotPlugin.m_instance.gameObject.AddComponent<DiscordGatewayClient>();
-        }
-    }
-    
     private static readonly JsonSerializerSettings settings = new()
     {
         MissingMemberHandling = MissingMemberHandling.Ignore,
@@ -36,10 +25,10 @@ public class DiscordGatewayClient : MonoBehaviour
     };
 
     public static DiscordGatewayClient? instance;
-
     public event Action<Message>? OnChatReceived;
     public event Action<Message>? OnCommandReceived;
     public event Action<string>? OnError;
+    public event Action<string>? OnLog;
     public event Action? OnConnected;
     public event Action? OnDisconnected;
     public event Action<string>? OnClosed;
@@ -69,9 +58,12 @@ public class DiscordGatewayClient : MonoBehaviour
         OnChatReceived += HandleChatMessage;
         OnCommandReceived += HandleCommands;
         OnError += HandleError;
+        OnLog += HandleLog;
         OnClosed += DiscordBotPlugin.LogDebug;
         OnConnected += () => DiscordBotPlugin.LogDebug("Connected to discord gateway");
         OnDisconnected += () => DiscordBotPlugin.LogDebug("Disconnected from discord gateway");
+        
+        DiscordBotPlugin.LogDebug("Initializing Discord Gateway");
     }
 
     private void Start()
@@ -91,18 +83,20 @@ public class DiscordGatewayClient : MonoBehaviour
     }
     private static void HandleError(string message)
     {
-        if (!DiscordBotPlugin.LogErrors) return;
         DiscordBotPlugin.LogError(message);
     }
+
+    private static void HandleLog(string message) => DiscordBotPlugin.records.Log(LogLevel.Info, message);
     
     private static void HandleChatMessage(Message message)
     {
+        instance?.OnLog?.Invoke($"Received discord chat message: username: {message.author?.username ?? "null"} - content: {message.content ?? "null"}");
         Discord.instance?.BroadcastMessage(message.author?.GetDisplayName() ?? "", message.content ?? "");
-        if (Player.m_localPlayer) Discord.DisplayChatMessage(message.author?.GetDisplayName() ?? "", message.content ?? "");
     }
     
     private static void HandleCommands(Message message)
     {
+        instance?.OnLog?.Invoke($"Received discord command: username: {message.author?.username ?? "null"} - content: {message.content ?? "null"}");
         if (message.content == null) return;
         string[] args = message.content.Split(' ');
         string command = args[0].Trim();

@@ -19,10 +19,6 @@ public static class API
         {
             if (DiscordCommands.m_commands.ContainsKey(command)) return;
             _ = new DiscordCommands.DiscordCommand(command, description, action, reaction, adminOnly, isSecret, emoji);
-            // if (!isSecret)
-            // {
-            //     _ = new DiscordCommands.CommandTooltip(command, description, adminOnly, emoji);
-            // }
         }
         else
         {
@@ -30,15 +26,44 @@ public static class API
             {
                 if (DiscordCommands.m_commands.ContainsKey(command)) return;
                 _ = new DiscordCommands.DiscordCommand(command, description, action, reaction, adminOnly, isSecret, emoji);
-                // if (!isSecret)
-                // {
-                //     _ = new DiscordCommands.CommandTooltip(command, description, adminOnly, emoji);
-                // }
             });
+        }
+    }
+
+    public static void SendWebhookMessage(string channel, string message)
+    {
+        switch (channel.ToLower())
+        {
+            case "notifications":
+                Discord.instance?.SendMessage(Webhook.Notifications, message);
+                break;
+            case "chat":
+                Discord.instance?.SendMessage(Webhook.Chat, message);
+                break;
+            case "commands":
+                Discord.instance?.SendMessage(Webhook.Commands, message);
+                break;
+        }
+    }
+
+    public static void SendWebhookTable(string channel, string title, Dictionary<string, string> tableData)
+    {
+        switch (channel.ToLower())
+        {
+            case "notifications":
+                Discord.instance?.SendTableEmbed(Webhook.Notifications, title, tableData);
+                break;
+            case "chat":
+                Discord.instance?.SendTableEmbed(Webhook.Chat, title, tableData);
+                break;
+            case "commands":
+                Discord.instance?.SendTableEmbed(Webhook.Commands, title, tableData);
+                break;
         }
     }
     public static void SendNotification(string message) => Discord.instance?.SendMessage(Webhook.Notifications, message);
     public static void SendChat(string message) => Discord.instance?.SendMessage(Webhook.Chat, message);
+    public static void SendCommandMessage(string message) => Discord.instance?.SendMessage(Webhook.Commands, message);
 }
 
 // Use this
@@ -60,11 +85,16 @@ public static class DiscordBot_API
     public static bool IsLoaded() => isLoaded;
 
     private static readonly Method _RegisterCommand = new("RegisterCommand");
-    private static readonly Method _SendNotification = new("SendNotification");
-    private static readonly Method _SendChat = new("SendChat");
+    private static readonly Method _SendWebhookMessage = new("SendWebhookMessage");
+    private static readonly Method _SendWebhookTable = new("SendWebhookTable");
 
-    public static void SendNotification(string message) => _SendNotification.Invoke(message);
-    public static void SendChat(string message) => _SendChat.Invoke(message);
+    [PublicAPI]
+    public enum Channel { Notifications, Chat, Commands, }
+
+    public static void SendWebhookMessage(Channel channel, string message) =>
+        _SendWebhookMessage.Invoke(channel.ToString(), message);
+    
+    public static void SendWebhookTable(Channel channel, string title, Dictionary<string, string> tableData) => _SendWebhookTable.Invoke(channel.ToString(), title, tableData);
     
     /// <param name="command">commands saved into a dictionary, must be unique, example: !mycommand</param>
     /// <param name="description">description of command sent to discord when using !help</param>
