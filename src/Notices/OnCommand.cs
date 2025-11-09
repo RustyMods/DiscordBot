@@ -12,7 +12,7 @@ public static class OnCommand
         private static void Postfix(Terminal.ConsoleCommand __instance, Terminal.ConsoleEventArgs args)
         {
             if (!DiscordBotPlugin.ShowCommandUse || !__instance.IsCheat || __instance.IsPluginCommand()) return;
-            Discord.instance?.SendMessage(Webhook.Notifications, Player.m_localPlayer?.GetPlayerName() ?? "Unknown", $"Executed command: `{string.Join(" ", args.Args)}`");
+            Discord.instance?.SendMessage(Webhook.Notifications, Player.m_localPlayer?.GetPlayerName() ?? "Unknown", $"Executed command: `{string.Join(" ", args.Args)}`", DiscordBotPlugin.OnUseCommandHooks);
         }
     }
 }

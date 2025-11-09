@@ -44,10 +44,14 @@ public class Discord : MonoBehaviour
         SetupAudioSource();
         if (!isServer) return;
         SendMessage(Webhook.Commands, ZNet.instance.GetWorldName(), $"{EmojiHelper.Emoji("question")} type `!help` to find list of available commands");
-        if (DiscordBotPlugin.ShowServerStart)
+        if (!DiscordBotPlugin.ShowServerStart) return;
+        SendStatus(Webhook.Notifications, DiscordBotPlugin.OnWorldStartHooks, Keys.ServerStart, ZNet.instance.GetWorldName(), Keys.Launching, new Color(0.4f, 0.98f, 0.24f));
+        if (!DiscordBotPlugin.ShowServerDetails) return;
+        SendTableEmbed(Webhook.Notifications, "Server Details", new()
         {
-            SendStatus(Webhook.Notifications, DiscordBotPlugin.OnWorldStartHooks, Keys.ServerStart, ZNet.instance.GetWorldName(), Keys.Launching, new Color(0.4f, 0.98f, 0.24f));
-        }
+            ["IP Address"] = ZNet.instance.GetServerIP(),
+            ["Local Address"] = ZNet.instance.LocalIPAddress(),
+        }, hooks: DiscordBotPlugin.OnWorldStartHooks);
     }
 
     private void OnDestroy()
@@ -235,7 +239,7 @@ public class Discord : MonoBehaviour
         StartCoroutine(SendWebhookMessage(webhookData, webhook.ToURL()));
     }
     
-    public void SendTableEmbed(Webhook webhook, string title, Dictionary<string, string> tableData, string username = "", string thumbnail = "")
+    public void SendTableEmbed(Webhook webhook, string title, Dictionary<string, string> tableData, string username = "", string thumbnail = "", List<string>? hooks = null)
     {
         if (tableData.Count <= 0)
         {
@@ -252,8 +256,9 @@ public class Discord : MonoBehaviour
         embed.AddThumbnail(thumbnail);
         
         DiscordWebhookData webhookData = new DiscordWebhookData(username, embed);
-
-        StartCoroutine(SendWebhookMessage(webhookData, webhook.ToURL()));
+        StartCoroutine(hooks is { Count: > 0 }
+            ? SendToMultipleHooks(webhookData, hooks)
+            : SendWebhookMessage(webhookData, webhook.ToURL()));
     }
 
     public void SendStatus(Webhook webhook, List<string> hooks, string content, string worldName, string status, Color color, string username = "", string thumbnail = "")
@@ -462,7 +467,7 @@ public class Discord : MonoBehaviour
 
         public Embed(string title, params EmbedField[] fields) : this()
         {
-            this.title = title;
+            this.title = Localization.instance.Localize(title);
             this.fields = fields;
         }
 

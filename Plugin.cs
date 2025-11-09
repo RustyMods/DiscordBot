@@ -54,7 +54,7 @@ public enum ChatDisplay { Player, Bot }
 public class DiscordBotPlugin : BaseUnityPlugin
 {
     internal const string ModName = "DiscordBot";
-    internal const string ModVersion = "1.2.6";
+    internal const string ModVersion = "1.2.7";
     internal const string Author = "RustyMods";
     private const string ModGUID = Author + "." + ModName;
     private const string ConfigFileName = ModGUID + ".cfg";
@@ -75,6 +75,8 @@ public class DiscordBotPlugin : BaseUnityPlugin
     private static ConfigEntry<string> m_logoutWebhook = null!;
     private static ConfigEntry<string> m_eventWebhook = null!;
     private static ConfigEntry<string> m_newDayWebhook = null!;
+    private static ConfigEntry<string> m_useCommandWebhook = null!;
+    private static ConfigEntry<string> m_bossWebhook = null!;
     #endregion
     #region notices
     private static ConfigEntry<string> m_notificationWebhookURL = null!;
@@ -88,6 +90,8 @@ public class DiscordBotPlugin : BaseUnityPlugin
     private static ConfigEntry<Toggle> m_newDayNotice = null!;
     private static ConfigEntry<Toggle> m_coordinateDetails = null!;
     private static ConfigEntry<Toggle> m_commandNotice = null!;
+    private static ConfigEntry<Toggle> m_showServerDetails = null!;
+    private static ConfigEntry<Toggle> m_showBossDeath = null!;
     #endregion
     #region chat
     private static ConfigEntry<string> m_chatWebhookURL = null!;
@@ -130,10 +134,14 @@ public class DiscordBotPlugin : BaseUnityPlugin
     private static readonly CustomSyncedValue<string> m_serverKeys = new(ConfigSync, "RustyMods.DiscordBot.ServerKeys", "");
     private static readonly CustomSyncedValue<string> m_serverOptions = new(ConfigSync, "RustyMods.DiscordBot.ServerOptions", "");
     private static ConfigEntry<Toggle> m_allowDiscordPrompt = null!;
+    private static ConfigEntry<Toggle> m_improveDeathQuips = null!;
+    private static ConfigEntry<Toggle> m_improveDayQuips = null!;
     #endregion
 
     private static ConfigEntry<Toggle> m_enableJobs = null!;
     public static bool ShowServerStart => m_serverStartNotice.Value is Toggle.On;
+    public static bool ShowBossDeath => m_showBossDeath.Value is Toggle.On;
+    public static bool ShowServerDetails => m_showServerDetails.Value is Toggle.On;
     public static bool ShowChat => m_chatEnabled.Value is Toggle.On;
     private static bool LogErrors => m_logErrors.Value is Toggle.On;
     public static bool ShowServerStop => m_serverStopNotice.Value is Toggle.On;
@@ -152,10 +160,10 @@ public class DiscordBotPlugin : BaseUnityPlugin
     public static string BOT_TOKEN => m_botToken.Value;
     public static string ChatChannelID => m_chatChannelID.Value;
     public static string CommandChannelID => m_commandChannelID.Value;
-    public static string ChatWebhookURL => m_chatWebhookURL.Value;
-    public static string CommandWebhookURL => m_commandWebhookURL.Value;
-    public static string NoticeWebhookURL => m_notificationWebhookURL.Value;
-    public static string DeathFeedWebhookURL => m_deathFeedURL.Value;
+    public static string ChatWebhookURL => SyncedWebhooks.chat;
+    public static string CommandWebhookURL => SyncedWebhooks.commands;
+    public static string NoticeWebhookURL => SyncedWebhooks.notifications;
+    public static string DeathFeedWebhookURL => SyncedWebhooks.death;
     public static bool ScreenshotDeath => m_screenshotDeath.Value is Toggle.On;
     public static bool ScreenshotGif => m_screenshotGif.Value is Toggle.On;
     public static float ScreenshotDelay => m_screenshotDelay.Value;
@@ -173,6 +181,8 @@ public class DiscordBotPlugin : BaseUnityPlugin
     private static OpenRouterModel OpenRouterModel => m_openRouterModel.Value;
     private static GeminiModel GeminiModel => m_geminiModel.Value;
     public static bool AllowDiscordPrompt => m_allowDiscordPrompt.Value is Toggle.On;
+    public static bool ImproveDeathQuips => m_improveDeathQuips.Value is Toggle.On;
+    public static bool ImproveDayQuips => m_improveDayQuips.Value is Toggle.On;
 
     public static void LogWarning(string message)
     {
@@ -190,17 +200,22 @@ public class DiscordBotPlugin : BaseUnityPlugin
     }
 
     private static readonly Dictionary<string, Resolution> resolutions = new();
-    public static List<string> OnWorldStartHooks => m_startWorldHook.Value.IsNullOrWhiteSpace() ? new List<string>() : new StringListConfig(m_startWorldHook.Value).list;
-    public static List<string> OnWorldSaveHooks => m_saveWebhook.Value.IsNullOrWhiteSpace() ? new List<string>() : new StringListConfig(m_saveWebhook.Value).list;
-    public static List<string> OnWorldShutdownHooks => m_shutdownWebhook.Value.IsNullOrWhiteSpace() ?  new List<string>() : new StringListConfig(m_shutdownWebhook.Value).list;
-    public static List<string> OnLoginHooks => m_loginWebhook.Value.IsNullOrWhiteSpace() ?  new List<string>() : new StringListConfig(m_loginWebhook.Value).list;
-    public static List<string> OnLogoutHooks => m_logoutWebhook.Value.IsNullOrWhiteSpace() ? new List<string>() : new StringListConfig(m_logoutWebhook.Value).list;
-    public static List<string> OnEventHooks => m_eventWebhook.Value.IsNullOrWhiteSpace() ? new List<string>() : new StringListConfig(m_eventWebhook.Value).list;
-    public static List<string> OnNewDayHooks => m_newDayWebhook.Value.IsNullOrWhiteSpace() ? new List<string>() : new StringListConfig(m_newDayWebhook.Value).list;
+    public static List<string> OnWorldStartHooks => SyncedWebhooks.start.IsNullOrWhiteSpace() ? new List<string>() : new StringListConfig(SyncedWebhooks.start).list;
+    public static List<string> OnWorldSaveHooks => SyncedWebhooks.save.IsNullOrWhiteSpace() ? new List<string>() : new StringListConfig(SyncedWebhooks.save).list;
+    public static List<string> OnWorldShutdownHooks => SyncedWebhooks.shutdown.IsNullOrWhiteSpace() ?  new List<string>() : new StringListConfig(SyncedWebhooks.shutdown).list;
+    public static List<string> OnLoginHooks => SyncedWebhooks.login.IsNullOrWhiteSpace() ?  new List<string>() : new StringListConfig(SyncedWebhooks.login).list;
+    public static List<string> OnLogoutHooks => SyncedWebhooks.logout.IsNullOrWhiteSpace() ? new List<string>() : new StringListConfig(SyncedWebhooks.logout).list;
+    public static List<string> OnEventHooks => SyncedWebhooks.events.IsNullOrWhiteSpace() ? new List<string>() : new StringListConfig(SyncedWebhooks.events).list;
+    public static List<string> OnNewDayHooks => SyncedWebhooks.newDay.IsNullOrWhiteSpace() ? new List<string>() : new StringListConfig(SyncedWebhooks.newDay).list;
+    public static List<string> OnUseCommandHooks => SyncedWebhooks.useCommands.IsNullOrWhiteSpace() ? new List<string>() : new StringListConfig(SyncedWebhooks.useCommands).list;
+    public static List<string> OnBossDeathHooks => SyncedWebhooks.boss.IsNullOrWhiteSpace() ? new List<string>() : new StringListConfig(SyncedWebhooks.boss).list;
+    
     public static bool JobsEnabled => m_enableJobs.Value is Toggle.On;
 
+    private static readonly CustomSyncedValue<string> ServerSyncedWebhooks = new(ConfigSync, "RustyMods.DiscordBot.SyncedWebhooks", "");
     private static ServerKeys SyncedAIKeys = new();
     private static ServerAIOption SyncedAIOption = new();
+    private static ServerWebhooks SyncedWebhooks = new();
 
     public static AIService GetAIServiceOption() => AIService switch
     {
@@ -230,8 +245,10 @@ public class DiscordBotPlugin : BaseUnityPlugin
         _ = ConfigSync.AddLockingConfigEntry(_serverConfigLocked);
         m_logErrors = config("1 - General", "Log Errors", Toggle.Off, "If on, caught errors will log to console");
         m_showDetailedLogs = config("1 - General", "Detailed Logs", Toggle.Off, "Show detailed logs");
-        m_notificationWebhookURL = config("2 - Notifications", "Webhook URL", "", "Set webhook to receive notifications, like server start, stop, save etc...");
+        m_notificationWebhookURL = config("2 - Notifications", "Webhook URL", "", "Set webhook to receive notifications, like server start, stop, save etc... [Server Only]", false);
+        m_notificationWebhookURL.SettingChanged += (_, _) => UpdateServerWebhooks();
         m_serverStartNotice = config("2 - Notifications", "Startup", Toggle.On, "If on, bot will send message when server is starting");
+        m_showServerDetails = config("2 - Notifications", "Server Details", Toggle.Off, "If on, bot will send server details when starting");
         m_serverStopNotice = config("2 - Notifications", "Shutdown", Toggle.On, "If on, bot will send message when server is shutting down");
         m_serverSaveNotice = config("2 - Notifications", "Saving", Toggle.On, "If on, bot will send message when server is saving");
         m_loginNotice = config("2 - Notifications", "Login", Toggle.On, "If on, bot will send message when player logs in");
@@ -239,13 +256,16 @@ public class DiscordBotPlugin : BaseUnityPlugin
         m_eventNotice = config("2 - Notifications", "Random Events", Toggle.On, "If on, bot will send message when random event starts");
         m_newDayNotice = config("2 - Notifications", "New Day", Toggle.Off, "If on, bot will send message when a new day begins");
         m_coordinateDetails = config("2 - Notifications", "Show Coordinates", Toggle.On, "If on, coordinates will be added to login/logout notifications");
+        m_showBossDeath = config("2 - Notifications", "Show Boss Death", Toggle.Off, "If on, bot will send boss death notifications");
         m_commandNotice = config("2 - Notifications", "Show Command Use", Toggle.Off, "If on, bot will send message when a player uses a cheat terminal command");
-        m_chatWebhookURL = config("3 - Chat", "Webhook URL", "", "Set discord webhook to display chat messages");
+        m_chatWebhookURL = config("3 - Chat", "Webhook URL", "", "Set discord webhook to display chat messages [Server Only]", false);
+        m_chatWebhookURL.SettingChanged += (_, _) => UpdateServerWebhooks();
         m_chatChannelID = config("3 - Chat", "Channel ID", "", "Set channel ID to monitor for messages");
         m_chatEnabled = config("3 - Chat", "Enabled", Toggle.On, "If on, bot will send message when player shouts and monitor discord for messages");
         m_chatType = config("3 - Chat", "Display As", ChatDisplay.Player, "Set how chat messages appear, if Player, message sent by player, else sent by bot with a prefix that player is saying");
         
-        m_commandWebhookURL = config("4 - Commands", "Webhook URL", "", "Set discord webhook to display feedback messages from commands");
+        m_commandWebhookURL = config("4 - Commands", "Webhook URL", "", "Set discord webhook to display feedback messages from commands [Server Only]", false);
+        m_commandWebhookURL.SettingChanged += (_, _) => UpdateServerWebhooks();
         m_commandChannelID = config("4 - Commands", "Channel ID", "", "Set channel ID to monitor for input commands");
         m_discordAdmins = config("4 - Commands", "Discord Admin", "", new ConfigDescription("List of discord admins, who can run commands", null, new ConfigurationManagerAttributes()
         {
@@ -256,7 +276,8 @@ public class DiscordBotPlugin : BaseUnityPlugin
         m_botToken = config("5 - Setup", "BOT TOKEN", "", "Add bot token here, server only", false);
         
         m_deathNotice = config("6 - Death Feed", "Enabled", Toggle.On, "If on, bot will send message when player dies");
-        m_deathFeedURL = config("6 - Death Feed", "Webhook URL", "", "Set webhook to receive death feed messages");
+        m_deathFeedURL = config("6 - Death Feed", "Webhook URL", "", "Set webhook to receive death feed messages [Server Only]", false);
+        m_deathFeedURL.SettingChanged += (_, _) => UpdateServerWebhooks();
         m_screenshotDeath = config("6 - Death Feed", "Screenshot", Toggle.On, "If on, bot will post screenshot of death", false);
         m_screenshotDelay = config("6 - Death Feed", "Screenshot Delay", 0.3f, new ConfigDescription("Set delay", new AcceptableValueRange<float>(0.1f, 5f)), false);
 
@@ -295,14 +316,29 @@ public class DiscordBotPlugin : BaseUnityPlugin
 
         m_selfieKey = config("1 - General", "Selfie", KeyCode.None, "Hotkey to take selfie and send to discord", false);
 
-        m_startWorldHook = config("7 - Webhooks", "On World Start", "", new ConfigDescription("If empty, will use default notification webhook", null, new ConfigurationManagerAttributes() { CustomDrawer = StringListConfig.Draw }));
-        m_saveWebhook = config("7 - Webhooks", "On World Save", "", new ConfigDescription("If empty, will use default notification webhook", null, new ConfigurationManagerAttributes(){ CustomDrawer = StringListConfig.Draw}));
-        m_shutdownWebhook = config("7 - Webhooks", "On World Shutdown", "", new ConfigDescription("If empty, will use default notification webhook", null, new ConfigurationManagerAttributes(){ CustomDrawer = StringListConfig.Draw}));
-        m_loginWebhook = config("7 - Webhooks", "On Login",  "", new ConfigDescription("If empty, will use default notification webhook", null, new ConfigurationManagerAttributes(){ CustomDrawer = StringListConfig.Draw}));
-        m_logoutWebhook = config("7 - Webhooks", "On Logout", "", new ConfigDescription("If empty, will use default notification webhook", null, new ConfigurationManagerAttributes(){ CustomDrawer = StringListConfig.Draw}));
-        m_eventWebhook = config("7 - Webhooks", "On Event", "", new ConfigDescription("If empty, will use default notification webhook", null, new ConfigurationManagerAttributes(){ CustomDrawer = StringListConfig.Draw}));
-        m_newDayWebhook = config("7 - Webhooks", "On New Day", "", new ConfigDescription("If empty, will use default notification webhook", null, new ConfigurationManagerAttributes() { CustomDrawer = StringListConfig.Draw }));
-
+        m_startWorldHook = config("7 - Webhooks", "On World Start", "", new ConfigDescription("If empty, will use default notification webhook [Server Only]", null, new ConfigurationManagerAttributes() { CustomDrawer = StringListConfig.Draw }), false);
+        m_saveWebhook = config("7 - Webhooks", "On World Save", "", new ConfigDescription("If empty, will use default notification webhook [Server Only]", null, new ConfigurationManagerAttributes(){ CustomDrawer = StringListConfig.Draw}), false);
+        m_shutdownWebhook = config("7 - Webhooks", "On World Shutdown", "", new ConfigDescription("If empty, will use default notification webhook [Server Only]", null, new ConfigurationManagerAttributes(){ CustomDrawer = StringListConfig.Draw}), false);
+        m_loginWebhook = config("7 - Webhooks", "On Login",  "", new ConfigDescription("If empty, will use default notification webhook [Server Only]", null, new ConfigurationManagerAttributes(){ CustomDrawer = StringListConfig.Draw}), false);
+        m_logoutWebhook = config("7 - Webhooks", "On Logout", "", new ConfigDescription("If empty, will use default notification webhook [Server Only]", null, new ConfigurationManagerAttributes(){ CustomDrawer = StringListConfig.Draw}), false);
+        m_eventWebhook = config("7 - Webhooks", "On Event", "", new ConfigDescription("If empty, will use default notification webhook [Server Only]", null, new ConfigurationManagerAttributes(){ CustomDrawer = StringListConfig.Draw}), false);
+        m_newDayWebhook = config("7 - Webhooks", "On New Day", "", new ConfigDescription("If empty, will use default notification webhook [Server Only]", null, new ConfigurationManagerAttributes() { CustomDrawer = StringListConfig.Draw }), false);
+        m_useCommandWebhook = config("7 - Webhooks", "On Use Command", "",
+            new ConfigDescription("If empty, will use default notification webhook [Server Only]", null,
+                new ConfigurationManagerAttributes() { CustomDrawer = StringListConfig.Draw }), false);
+        m_bossWebhook = config("7 - Webhooks", "On Boss Death", "", new ConfigDescription(
+            "If empty, will use default notification webhook [Server Only]", null,
+            new ConfigurationManagerAttributes() { CustomDrawer = StringListConfig.Draw }), false);
+        m_startWorldHook.SettingChanged += (_, _) => UpdateServerWebhooks();
+        m_saveWebhook.SettingChanged += (_, _) => UpdateServerWebhooks();
+        m_shutdownWebhook.SettingChanged += (_, _) => UpdateServerWebhooks();
+        m_loginWebhook.SettingChanged += (_, _) => UpdateServerWebhooks();
+        m_logoutWebhook.SettingChanged += (_, _) => UpdateServerWebhooks();
+        m_eventWebhook.SettingChanged += (_, _) => UpdateServerWebhooks();
+        m_newDayWebhook.SettingChanged += (_, _) => UpdateServerWebhooks();
+        m_useCommandWebhook.SettingChanged += (_, _) => UpdateServerWebhooks();
+        m_bossWebhook.SettingChanged += (_, _) => UpdateServerWebhooks();
+        
         m_aiService = config("8 - AI", "Provider", AIService.Gemini, "Set which Artificial Intelligence API to use", false);
         m_chatGPTAPIKEY = config("8 - AI", "ChatGPT", "", "Set ChatGPT key", false);
         m_geminiAPIKEY = config("8 - AI", "Gemini", "", "Set Gemini key", false);
@@ -319,11 +355,29 @@ public class DiscordBotPlugin : BaseUnityPlugin
         m_aiService.SettingChanged += (_, _) => UpdateServerAIOption();
         m_openRouterModel.SettingChanged += (_, _) => UpdateServerAIOption();
         m_geminiModel.SettingChanged += (_, _) => UpdateServerAIOption();
-        m_serverKeys.ValueChanged += () => SyncedAIKeys = new ServerKeys(m_serverKeys.Value);
-        m_serverOptions.ValueChanged += () => SyncedAIOption = new ServerAIOption(m_serverOptions.Value);
+        m_serverKeys.ValueChanged += () =>
+        {
+            if (string.IsNullOrWhiteSpace(m_serverKeys.Value) || (ZNet.instance?.IsServer() ?? false)) return;
+            SyncedAIKeys = new ServerKeys(m_serverKeys.Value);
+            LogDebug("Received server AI keys");
+        };
+        m_serverOptions.ValueChanged += () =>
+        {
+            if (string.IsNullOrWhiteSpace(m_serverOptions.Value) || (ZNet.instance?.IsServer() ?? false)) return;
+            SyncedAIOption = new ServerAIOption(m_serverOptions.Value);
+            LogDebug("Received server AI options");
+        };
+        ServerSyncedWebhooks.ValueChanged += () =>
+        {
+            if (string.IsNullOrWhiteSpace(ServerSyncedWebhooks.Value) || (ZNet.instance?.IsServer() ?? false)) return;
+            SyncedWebhooks = new ServerWebhooks(ServerSyncedWebhooks.Value);
+            LogDebug("Received server webhooks");
+        };
+        m_improveDeathQuips = config("8 - AI", "Death Quips", Toggle.On, "If on and AI is setup, will prompt to improve quip");
+        m_improveDayQuips = config("8 - AI", "Day Quips", Toggle.On, "If on, and AI is setup, will prompt to improve quip");
         DiscordCommands.Setup();
         DeathQuips.Setup();
-
+        DayQuips.Setup();
         Assembly assembly = Assembly.GetExecutingAssembly();
         _harmony.PatchAll(assembly);
         SetupWatcher();
@@ -345,9 +399,31 @@ public class DiscordBotPlugin : BaseUnityPlugin
             m_instance.gameObject.GetOrAddComponent<JobManager>();
             UpdateServerAIKeys();
             UpdateServerAIOption();
+            UpdateServerWebhooks();
         }
     }
 
+    private static void UpdateServerWebhooks()
+    {
+        if (!(ZNet.instance?.IsServer() ?? false)) return;
+        SyncedWebhooks = new ServerWebhooks(
+            m_notificationWebhookURL.Value, 
+            m_commandWebhookURL.Value, 
+            m_chatWebhookURL.Value,
+            m_deathFeedURL.Value, 
+            m_startWorldHook.Value,
+            m_saveWebhook.Value, 
+            m_shutdownWebhook.Value, 
+            m_loginWebhook.Value, 
+            m_logoutWebhook.Value,
+            m_eventWebhook.Value, 
+            m_newDayWebhook.Value,
+            m_useCommandWebhook.Value,
+            m_bossWebhook.Value
+            );
+        ServerSyncedWebhooks.Value = SyncedWebhooks.ToString();
+        records.Log(LogLevel.Info, "Updating server webhooks");
+    }
     private static void UpdateServerAIKeys()
     {
         if (!(ZNet.instance?.IsServer() ?? false)) return;
@@ -491,6 +567,62 @@ public class DiscordBotPlugin : BaseUnityPlugin
         [UsedImplicitly] public bool? Browsable = null!;
         [UsedImplicitly] public string? Category = null!;
         [UsedImplicitly] public Action<ConfigEntryBase>? CustomDrawer = null!;
+    }
+
+    public class ServerWebhooks
+    {
+        public readonly string notifications = "";
+        public readonly string commands = "";
+        public readonly string chat = "";
+        public readonly string death = "";
+        public readonly string start = "";
+        public readonly string save = "";
+        public readonly string shutdown = "";
+        public readonly string login = "";
+        public readonly string logout = "";
+        public readonly string events = "";
+        public readonly string newDay = "";
+        public readonly string useCommands = "";
+        public readonly string boss = "";
+
+        public ServerWebhooks(){}
+        public ServerWebhooks(string notifications, string commands, string chat, string death, string start, string save,
+            string shutdown, string login, string logout, string events, string newDay, string useCommands, string boss)
+        {
+            this.notifications = notifications;
+            this.commands = commands;
+            this.chat = chat;
+            this.death = death;
+            this.start = start;
+            this.save = save;
+            this.shutdown = shutdown;
+            this.login = login;
+            this.logout = logout;
+            this.events = events;
+            this.newDay = newDay;
+            this.useCommands = useCommands;
+            this.boss = boss;
+        }
+
+        public ServerWebhooks(string configs)
+        {
+            string[] parts = configs.Split(';');
+            if (parts.Length < 13) return;
+            notifications = parts[0];
+            commands = parts[1];
+            chat = parts[2];
+            death =  parts[3];
+            start = parts[4];
+            save = parts[5];
+            shutdown = parts[6];
+            login = parts[7];
+            logout = parts[8];
+            events = parts[9];
+            newDay = parts[10];
+            useCommands = parts[11];
+            boss  = parts[12];
+        }
+        public override string ToString() => $"{notifications};{commands};{chat};{death};{start};{save};{shutdown};{login};{logout};{events};{newDay};{useCommands};{boss}";
     }
     
     public class ServerKeys

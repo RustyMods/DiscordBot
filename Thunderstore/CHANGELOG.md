@@ -1,3 +1,11 @@
+# 1.2.7
+- made all webhook urls shared via custom synced value instead of being visible in config file, to make urls hidden from clients to avoid abuse
+- added on new day quips
+- day quips are shown in-game
+- added webhooks config for use cheat command notifications
+- added boss death notifications
+- added webhooks config for on boss death
+
 # 1.2.6
 - death quips are now shown in-game
 - new config `detailed logs`

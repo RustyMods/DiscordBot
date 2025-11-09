@@ -29,7 +29,7 @@ public static class OnDeath
             }
 
             bool isGeneratingQuip = false;
-            if (ChatAI.HasKey())
+            if (DiscordBotPlugin.ImproveDeathQuips && ChatAI.HasKey())
             {
                 var prompt =
                     "You are a witty, sarcastic Viking spirit in Valheim" +

@@ -73,6 +73,9 @@ public class ChatAI : MonoBehaviour
     public event Action<int, int, int>? OnMetadata;
     public event Action<string>? OnError;
     public event Action<string>? OnDeathQuip;
+    public event Action<string>? OnDayQuip;
+
+    public event Action<string, bool, bool>? OnReply;
 
     public bool isThinking;
     public int ellipsesCount;
@@ -121,7 +124,7 @@ public class ChatAI : MonoBehaviour
         OnError += HandleError;
         OnDeathQuip += HandleDeathQuip;
         OnMetadata += HandleMetadata;
-        
+        OnReply += HandleReply;
         DiscordBotPlugin.LogDebug("Initializing Chat AI");
     }
 
@@ -141,6 +144,12 @@ public class ChatAI : MonoBehaviour
         instance = null;
     }
 
+    public void HandleReply(string message, bool deathQuip, bool dayQuip)
+    {
+        if (deathQuip) OnDeathQuip?.Invoke(message);
+        else if (dayQuip) OnDayQuip?.Invoke(message);
+        else OnResponse?.Invoke(message);
+    }
     public void HandleResponse(string response)
     {
         BroadcastMessage($"[{DiscordBotPlugin.AIService}]", response);
@@ -164,21 +173,21 @@ public class ChatAI : MonoBehaviour
         if (Recorder.instance) Recorder.instance.message = quip;
     }
 
-    public void Ask(string prompt, bool deathQuip = false)
+    public void Ask(string prompt, bool deathQuip = false, bool dayQuip = false)
     {
         switch (DiscordBotPlugin.GetAIServiceOption())
         {
             case AIService.ChatGPT:
-                AskOpenAI(prompt, deathQuip);
+                AskOpenAI(prompt, deathQuip, dayQuip);
                 break;
             case AIService.Gemini:
-                AskGemini(prompt, deathQuip);
+                AskGemini(prompt, deathQuip, dayQuip);
                 break;
             case AIService.DeepSeek:
-                AskDeepSeek(prompt, deathQuip);
+                AskDeepSeek(prompt, deathQuip, dayQuip);
                 break;
             case AIService.OpenRouter:
-                AskOpenRouter(prompt, deathQuip);
+                AskOpenRouter(prompt, deathQuip, dayQuip);
                 break;
         }
     }
@@ -192,7 +201,7 @@ public class ChatAI : MonoBehaviour
         _ => false
     };
     
-    public void AskOpenAI(string prompt, bool deathQuip = false)
+    public void AskOpenAI(string prompt, bool deathQuip = false, bool dayQuip = false)
     {
         string key = DiscordBotPlugin.GetChatGPTKey();
         
@@ -201,10 +210,10 @@ public class ChatAI : MonoBehaviour
             OnError?.Invoke("OpenAI API token not set");
             return;
         }
-        StartCoroutine(PromptOpenAI(key, prompt, deathQuip));
+        StartCoroutine(PromptOpenAI(key, prompt, deathQuip, dayQuip));
     }
 
-    public void AskGemini(string prompt, bool deathQuip = false)
+    public void AskGemini(string prompt, bool deathQuip = false, bool dayQuip = false)
     {
         var key = DiscordBotPlugin.GetGeminiKey();
         if (string.IsNullOrEmpty(key))
@@ -212,10 +221,10 @@ public class ChatAI : MonoBehaviour
             OnError?.Invoke("Gemini API token not set");
             return;
         }
-        StartCoroutine(PromptGemini(key, prompt, deathQuip));
+        StartCoroutine(PromptGemini(key, prompt, deathQuip, dayQuip));
     }
 
-    public void AskDeepSeek(string prompt, bool deathQuip = false)
+    public void AskDeepSeek(string prompt, bool deathQuip = false, bool dayQuip = false)
     {
         var key = DiscordBotPlugin.GetDeepSeekKey();
         if (string.IsNullOrEmpty(key))
@@ -223,10 +232,10 @@ public class ChatAI : MonoBehaviour
             OnError?.Invoke("DeepSeek API token not set");
             return;
         }
-        StartCoroutine(PromptDeepSeek(key, prompt, deathQuip));
+        StartCoroutine(PromptDeepSeek(key, prompt, deathQuip, dayQuip));
     }
     
-    public void AskOpenRouter(string prompt, bool deathQuip = false)
+    public void AskOpenRouter(string prompt, bool deathQuip = false, bool dayQuip = false)
     {
         var key = DiscordBotPlugin.GetOpenRouterKey();
         if (string.IsNullOrEmpty(key))
@@ -234,10 +243,10 @@ public class ChatAI : MonoBehaviour
             OnError?.Invoke("OpenRouter API token not set");
             return;
         }
-        StartCoroutine(PromptOpenRouter(key, prompt, deathQuip));
+        StartCoroutine(PromptOpenRouter(key, prompt, deathQuip, dayQuip));
     }
     
-    private IEnumerator PromptOpenAI(string apiKey, string prompt, bool deathQuip)
+    private IEnumerator PromptOpenAI(string apiKey, string prompt, bool deathQuip, bool dayQuip)
     {
         isThinking = true;
         const string url = "https://api.openai.com/v1/chat/completions";
@@ -264,10 +273,10 @@ public class ChatAI : MonoBehaviour
             yield break;
         }
         
-        ParseGPTResponse(request.downloadHandler.text, deathQuip);
+        ParseGPTResponse(request.downloadHandler.text, deathQuip, dayQuip);
     }
 
-    public void ParseGPTResponse(string json, bool deathQuip)
+    public void ParseGPTResponse(string json, bool deathQuip, bool dayQuip)
     {
         GPTResponse? response = JsonConvert.DeserializeObject<GPTResponse>(json);
         if (response == null)
@@ -277,12 +286,11 @@ public class ChatAI : MonoBehaviour
         else
         {
             string reply = response.choices[0].message.content.Trim();
-            if (!deathQuip) OnResponse?.Invoke(reply);
-            else OnDeathQuip?.Invoke(reply);
+            OnReply?.Invoke(reply, deathQuip, dayQuip);
         }
     }
     
-    private IEnumerator PromptGemini(string apiKey, string prompt, bool deathQuip)
+    private IEnumerator PromptGemini(string apiKey, string prompt, bool deathQuip, bool dayQuip)
     {
         isThinking = true;
         string model = DiscordBotPlugin.GetGeminiOption().GetAttributeOfType<InternalName>().internalName;
@@ -311,10 +319,10 @@ public class ChatAI : MonoBehaviour
             yield break;
         }
         
-        ParseGeminiResponse(request.downloadHandler.text, deathQuip);
+        ParseGeminiResponse(request.downloadHandler.text, deathQuip, dayQuip);
     }
     
-    public void ParseGeminiResponse(string json, bool deathQuip)
+    public void ParseGeminiResponse(string json, bool deathQuip, bool dayQuip)
     {
         GeminiResponse? response = JsonConvert.DeserializeObject<GeminiResponse>(json);
         if (response?.candidates == null || response.candidates.Length == 0)
@@ -330,12 +338,11 @@ public class ChatAI : MonoBehaviour
                 OnMetadata?.Invoke(response.UsageMetadata.promptTokenCount, response.UsageMetadata.candidatesTokenCount, response.UsageMetadata.totalTokenCount);
             }
             
-            if (deathQuip) OnDeathQuip?.Invoke(reply);
-            else OnResponse?.Invoke(reply);
+            OnReply?.Invoke(reply, deathQuip, dayQuip);
         }
     }
     
-    private IEnumerator PromptDeepSeek(string apiKey, string prompt, bool deathQuip)
+    private IEnumerator PromptDeepSeek(string apiKey, string prompt, bool deathQuip, bool dayQuip)
     {
         isThinking = true;
         const string url = "https://api.deepseek.com/chat/completions";
@@ -362,10 +369,10 @@ public class ChatAI : MonoBehaviour
             yield break;
         }
         
-        ParseDeepSeekResponse(request.downloadHandler.text, deathQuip);
+        ParseDeepSeekResponse(request.downloadHandler.text, deathQuip, dayQuip);
     }
     
-    public void ParseDeepSeekResponse(string json, bool deathQuip)
+    public void ParseDeepSeekResponse(string json, bool deathQuip, bool dayQuip)
     {
         DeepSeekResponse? response = JsonConvert.DeserializeObject<DeepSeekResponse>(json);
         if (response?.choices == null || response.choices.Length == 0)
@@ -375,12 +382,11 @@ public class ChatAI : MonoBehaviour
         else
         {
             string reply = response.choices[0].message.content.Trim();
-            if (deathQuip) OnDeathQuip?.Invoke(reply);
-            else OnResponse?.Invoke(reply);
+            OnReply?.Invoke(reply, deathQuip, dayQuip);
         }
     }
     
-    private IEnumerator PromptOpenRouter(string apiKey, string prompt, bool deathQuip)
+    private IEnumerator PromptOpenRouter(string apiKey, string prompt, bool deathQuip, bool dayQuip)
     {
         isThinking = true;
         const string url = "https://openrouter.ai/api/v1/chat/completions";
@@ -409,10 +415,10 @@ public class ChatAI : MonoBehaviour
             yield break;
         }
         
-        ParseOpenRouterResponse(request.downloadHandler.text, deathQuip);
+        ParseOpenRouterResponse(request.downloadHandler.text, deathQuip, dayQuip);
     }
     
-    public void ParseOpenRouterResponse(string json, bool deathQuip)
+    public void ParseOpenRouterResponse(string json, bool deathQuip, bool dayQuip)
     {
         OpenRouterResponse? response = JsonConvert.DeserializeObject<OpenRouterResponse>(json);
         if (response?.choices == null || response.choices.Length == 0)
@@ -422,8 +428,7 @@ public class ChatAI : MonoBehaviour
         else
         {
             string reply = response.choices[0].message.content.Trim();
-            if (deathQuip) OnDeathQuip?.Invoke(reply);
-            else OnResponse?.Invoke(reply);
+            OnReply?.Invoke(reply, deathQuip, dayQuip);
         }
     }
 

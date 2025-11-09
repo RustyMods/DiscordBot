@@ -152,12 +152,14 @@
         <Compile Include="src\Behaviors\Recorder.cs" />
         <Compile Include="src\Behaviors\Screenshot.cs" />
         <Compile Include="src\ColorExtensions.cs" />
+        <Compile Include="src\DayQuips.cs" />
         <Compile Include="src\Gif\GIFEncoder.cs" />
         <Compile Include="src\Gif\Image.cs" />
         <Compile Include="src\Gif\LZWEncoder.cs" />
         <Compile Include="src\Gif\NeuQuant.cs" />
         <Compile Include="src\Jobs\Job.cs" />
         <Compile Include="src\Jobs\JobManager.cs" />
+        <Compile Include="src\Notices\OnBossKill.cs" />
         <Compile Include="src\Notices\OnCommand.cs" />
         <Compile Include="src\Notices\OnRandomEvent.cs" />
         <Compile Include="src\Notices\OnLogin.cs" />

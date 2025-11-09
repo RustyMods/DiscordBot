@@ -131,6 +131,38 @@ public static class DiscordCommands
 
         }, emoji: "question");
 
+        var items = new DiscordCommand("!inventory", "List of items in player's inventory, `player name`", args =>
+            {
+                if (args.Length < 2) return;
+                var playerName = args[1].Trim();
+                if (Player.m_localPlayer && Player.m_localPlayer.GetPlayerName() == playerName)
+                {
+                    var items = Player.m_localPlayer.GetInventory().GetAllItemsSortedByName();
+                    StringBuilder sb = new StringBuilder();
+                    foreach (var item in items)
+                    {
+                        sb.Append($"`{item.m_shared.m_name} x{item.m_stack}`\n");
+                    }
+                    Discord.instance?.SendEmbedMessage(Webhook.Commands, playerName + " inventory", sb.ToString());
+                }
+                else if (ZNet.instance.GetPeerByPlayerName(playerName) is { } peer)
+                {
+                    var pkg = new ZPackage();
+                    pkg.Write("!items");
+                    peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
+                }
+            }, _ =>
+            {
+                var items = Player.m_localPlayer.GetInventory().GetAllItemsSortedByName();
+                StringBuilder sb = new StringBuilder();
+                foreach (var item in items)
+                {
+                    sb.Append($"`{item.m_shared.m_name} x{item.m_stack}`\n");
+                }
+                Discord.instance?.SendEmbedMessage(Webhook.Commands, Player.m_localPlayer.GetPlayerName() + " inventory", sb.ToString());
+            },
+        adminOnly: true, emoji: "book");
+
         var discordPrompt = new DiscordCommand("!prompt", "Prompt server AI service, `prompt`", args =>
         {
             if (!DiscordBotPlugin.AllowDiscordPrompt)
@@ -435,15 +467,15 @@ public static class DiscordCommands
 
         var message = new DiscordCommand("!message", "Broadcast message to all players which shows up center of screen", args =>
         {
-            var message = string.Join(" ", args.Skip(1));
+            string message = string.Join(" ", args.Skip(1));
             MessageHud.instance.MessageAll(MessageHud.MessageType.Center, message);
         }, adminOnly: true, emoji:"smile");
 
         var shout = new DiscordCommand("!shout", "Shout message to all players which shows up in chat window",
             args =>
             {
-                var author = ZNet.instance?.GetWorldName() ?? "Server";
-                var msg = string.Join(" ", args.Skip(1));
+                string author = ZNet.instance?.GetWorldName() ?? "Server";
+                string msg = string.Join(" ", args.Skip(1));
                 Discord.instance?.BroadcastMessage(author, msg);
             }, adminOnly:true, emoji:"wave");
 
@@ -451,8 +483,8 @@ public static class DiscordCommands
             args =>
             {
                 if (args.Length < 2) return;
-                var url = args[1].Trim();
-                var pkg = new ZPackage();
+                string url = args[1].Trim();
+                ZPackage pkg = new ZPackage();
                 pkg.Write("!image");
                 pkg.Write(url);
                 foreach(var peer in ZNet.instance.GetPeers()) peer.m_rpc.Invoke(nameof(RPC_BotToClient), pkg);
@@ -462,18 +494,14 @@ public static class DiscordCommands
                 }
             }, pkg =>
             {
-                var url = pkg.ReadString();
+                string? url = pkg.ReadString();
                 Discord.instance?.GetImage(url);
             },adminOnly: true, emoji: "paint");
 
         var forceSleep =
-            new DiscordCommand("!sleep", "Forced everyone to sleep", _ =>
+            new DiscordCommand("!sleep", "Skip to morning", _ =>
             {
-                if (EnvMan.instance.IsTimeSkipping() || !EnvMan.IsAfternoon() && !EnvMan.IsNight() ||
-                    ZNet.instance.GetTimeSeconds() - Game.instance.m_lastSleepTime < 10.0) return;
                 EnvMan.instance.SkipToMorning();
-                Game.instance.m_sleeping = true;
-                ZRoutedRpc.instance.InvokeRoutedRPC(ZRoutedRpc.Everybody, "SleepStart");
             }, adminOnly: true, emoji: "moon");
 
         var listKeys = new DiscordCommand("!listkeys", "List of global keys", _ =>
