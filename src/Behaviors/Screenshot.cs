@@ -159,7 +159,7 @@ public class Screenshot : MonoBehaviour
     {
         Discord.instance?.SendImageMessage(Webhook.DeathFeed, playerName, message, data, $"{DateTime.UtcNow:yyyyMMdd_HHmmss}.png", thumbnail: thumbnail);
         var worldName = ZNet.instance?.GetWorldName() ?? "Server";
-        Discord.instance?.BroadcastMessage(worldName, message, false);
+        Discord.instance?.Internal_BroadcastMessage(worldName, message, false);
     }
     public void SendSelfieToDiscord(byte[] bytes)
     {

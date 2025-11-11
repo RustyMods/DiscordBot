@@ -1,3 +1,8 @@
+# 1.2.8
+- fixed death quips in-game not being shared to all players
+- fixed in-game day quips still showing from discord
+- added coordinates on command use notification
+
 # 1.2.7
 - made all webhook urls shared via custom synced value instead of being visible in config file, to make urls hidden from clients to avoid abuse
 - added on new day quips

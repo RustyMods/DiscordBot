@@ -195,7 +195,14 @@ public class Discord : MonoBehaviour
         DisplayChatMessage(username, message, showDiscord);
     }
 
-    public static void RPC_ClientBotMessage(ZRpc rpc, string username, string message, bool showDiscord) => DisplayChatMessage(username, message);
+    public void Internal_BroadcastMessage(string username, string message, bool showDiscord)
+    {
+        foreach (var peer in ZNet.instance.GetPeers()) peer.m_rpc.Invoke(nameof(RPC_ClientBotMessage), username, message, showDiscord);
+        if (!Player.m_localPlayer) return;
+        DisplayChatMessage(username, message, showDiscord);
+    }
+
+    public static void RPC_ClientBotMessage(ZRpc rpc, string username, string message, bool showDiscord) => DisplayChatMessage(username, message, showDiscord);
     public static void DisplayChatMessage(string userName, string message, bool showDiscord = true)
     {
         string text = $"{(showDiscord ? $"<color=#{ColorUtility.ToHtmlStringRGB(new Color(0f, 0.5f, 0.5f, 1f))}>[Discord]</color>" : "")}<color=orange>{userName}</color>: {message}";

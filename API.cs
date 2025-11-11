@@ -35,13 +35,13 @@ public static class API
         switch (channel.ToLower())
         {
             case "notifications":
-                Discord.instance?.SendMessage(Webhook.Notifications, message);
+                Discord.instance?.SendMessage(Webhook.Notifications, message: message);
                 break;
             case "chat":
-                Discord.instance?.SendMessage(Webhook.Chat, message);
+                Discord.instance?.SendMessage(Webhook.Chat, message: message);
                 break;
             case "commands":
-                Discord.instance?.SendMessage(Webhook.Commands, message);
+                Discord.instance?.SendMessage(Webhook.Commands, message: message);
                 break;
         }
     }

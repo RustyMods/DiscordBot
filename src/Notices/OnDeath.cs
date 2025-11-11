@@ -49,7 +49,7 @@ public static class OnDeath
                     {
                         Discord.instance?.SendEmbedMessage(Webhook.DeathFeed, $"{__instance.GetPlayerName()} {Keys.HasDied}", msg, thumbnail: avatar);
                         var worldName = ZNet.instance?.GetWorldName() ?? "Server";
-                        Discord.instance?.BroadcastMessage(worldName, msg, false);
+                        Discord.instance?.Internal_BroadcastMessage(worldName, msg, false);
                         if (ChatAI.instance) ChatAI.instance.OnDeathQuip -= delayedMessage;
                     }
                     ChatAI.instance.OnDeathQuip += delayedMessage;
@@ -58,7 +58,7 @@ public static class OnDeath
                 {
                     Discord.instance?.SendEmbedMessage(Webhook.DeathFeed, $"{__instance.GetPlayerName()} {Keys.HasDied}", quip, thumbnail: avatar);
                     var worldName = ZNet.instance?.GetWorldName() ?? "Server";
-                    Discord.instance?.BroadcastMessage(worldName, quip, false);
+                    Discord.instance?.Internal_BroadcastMessage(worldName, quip, false);
                 }
             }
         }

@@ -120,6 +120,6 @@ public class Recorder : MonoBehaviour
         }
         Discord.instance?.SendGifMessage(Webhook.DeathFeed, playerName, message, bytes, $"{DateTime.UtcNow:yyyyMMdd_HHmmss}.gif", thumbnail: thumbnail);
         var worldName = ZNet.instance?.GetWorldName() ?? "Server";
-        Discord.instance?.BroadcastMessage(worldName, message, false);
+        Discord.instance?.Internal_BroadcastMessage(worldName, message, false);
     }
 }
