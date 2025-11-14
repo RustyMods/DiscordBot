@@ -22,16 +22,7 @@ public static class OnNewDay
                     string prompt = "You are a witty, sarcastic Viking spirit in Valheim" +
                                     "A new day has arrive, and the original message is: " + msg +
                                     ". Reimagine thsi quip to make it fresh, humorous and entertaining, keep it 1-2 sentences.";
-                    ChatAI.instance.OnDayQuip += delayedMsg;
                     ChatAI.instance.Ask(prompt, false, true);
-                    
-                    void delayedMsg(string message)
-                    {
-                        msg = message;
-                        Discord.instance?.SendMessage(Webhook.Notifications, message: msg, hooks: DiscordBotPlugin.OnNewDayHooks);
-                        ChatAI.instance!.OnDayQuip -= delayedMsg;
-                        Discord.instance?.BroadcastMessage(ZNet.instance.GetWorldName(), msg, false);
-                    }
                 }
                 else
                 {

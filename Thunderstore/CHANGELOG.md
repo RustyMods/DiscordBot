@@ -1,3 +1,10 @@
+# 1.3.0
+- fixed in-game broadcast only being sent to server
+
+# 1.2.9
+- added try/catch to hide/show hud
+- fixed in-game chat message broadcast
+
 # 1.2.8
 - fixed death quips in-game not being shared to all players
 - fixed in-game day quips still showing from discord

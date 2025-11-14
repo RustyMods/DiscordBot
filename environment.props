@@ -4,7 +4,7 @@
         <BepInExPath>$(ValheimGamePath)\BepInEx</BepInExPath>
         <CorlibPath>$(ValheimGamePath)\valheim_Data\Managed</CorlibPath>
         <PublicizedAssembliesPath>$(ValheimGamePath)\valheim_Data\Managed\publicized_assemblies</PublicizedAssembliesPath>
-        <CopyOutputDLLPath>$(ValheimGamePath)\BepInEx\plugins</CopyOutputDLLPath>
+        <CopyOutputDLLPath>C:\Users\peima\Desktop\VALHEIM MODDING\projects\DiscordBot\DiscordBot\Thunderstore</CopyOutputDLLPath>
         <CopyOutputDLLPath2>C:\Program Files (x86)\Steam\steamapps\common\Valheim dedicated server\BepInEx\plugins</CopyOutputDLLPath2>
         <CopyOutputDLLPath3>C:\Users\peima\AppData\Roaming\com.kesomannen.gale\valheim\profiles\vanilla\BepInEx\plugins\RustyMods-DiscordBot</CopyOutputDLLPath3>
         <AfterTargets>ILRepacker</AfterTargets>

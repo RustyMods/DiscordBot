@@ -21,6 +21,7 @@ public static class OnNewChat
                     Discord.instance?.SendMessage(Webhook.Chat, message: $"{Player.m_localPlayer?.GetPlayerName() ?? ZNet.instance.GetWorldName()} {Keys.Shouts} {text.Format(TextFormat.Bold)}");
                     break;
             }
+            
         }
     }
 

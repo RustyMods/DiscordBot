@@ -72,8 +72,8 @@ public class ChatAI : MonoBehaviour
     public event Action<string>? OnResponse;
     public event Action<int, int, int>? OnMetadata;
     public event Action<string>? OnError;
-    public event Action<string>? OnDeathQuip;
-    public event Action<string>? OnDayQuip;
+    public Action<string>? OnDeathQuip;
+    public Action<string>? OnDayQuip;
 
     public event Action<string, bool, bool>? OnReply;
 
@@ -125,6 +125,7 @@ public class ChatAI : MonoBehaviour
         OnDeathQuip += HandleDeathQuip;
         OnMetadata += HandleMetadata;
         OnReply += HandleReply;
+        OnDayQuip = HandleDayQuip;
         DiscordBotPlugin.LogDebug("Initializing Chat AI");
     }
 
@@ -142,6 +143,12 @@ public class ChatAI : MonoBehaviour
     public void OnDestroy()
     {
         instance = null;
+    }
+
+    public void HandleDayQuip(string message)
+    {
+        Discord.instance?.SendMessage(Webhook.Notifications, message: message, hooks: DiscordBotPlugin.OnNewDayHooks);
+        Discord.instance?.BroadcastMessage(ZNet.instance.GetWorldName(), message, false);
     }
 
     public void HandleReply(string message, bool deathQuip, bool dayQuip)

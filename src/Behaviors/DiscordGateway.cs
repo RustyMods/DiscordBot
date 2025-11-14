@@ -91,7 +91,23 @@ public class DiscordGatewayClient : MonoBehaviour
     private static void HandleChatMessage(Message message)
     {
         instance?.OnLog?.Invoke($"Received discord chat message: username: {message.author?.username ?? "null"} - content: {message.content ?? "null"}");
-        Discord.instance?.BroadcastMessage(message.author?.GetDisplayName() ?? "", message.content ?? "");
+        var content = message.content ?? "";
+        
+        Discord.instance?.BroadcastMessage(message.author?.GetDisplayName() ?? "", RemoveMentions(content));
+    }
+    
+    private static string RemoveMentions(string content)
+    {
+        if (string.IsNullOrEmpty(content))
+            return content;
+    
+        // Only removes Discord user mentions: <@userid> or <@!userid>
+        // Won't match general text with < and >
+        return System.Text.RegularExpressions.Regex.Replace(
+            content, 
+            @"<@!?\d+>", 
+            ""
+        ).Trim();
     }
     
     private static void HandleCommands(Message message)

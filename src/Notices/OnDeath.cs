@@ -45,14 +45,12 @@ public static class OnDeath
             {
                 if (isGeneratingQuip && ChatAI.instance)
                 {
-                    void delayedMessage(string msg)
+                    ChatAI.instance.OnDeathQuip = msg =>
                     {
                         Discord.instance?.SendEmbedMessage(Webhook.DeathFeed, $"{__instance.GetPlayerName()} {Keys.HasDied}", msg, thumbnail: avatar);
                         var worldName = ZNet.instance?.GetWorldName() ?? "Server";
                         Discord.instance?.Internal_BroadcastMessage(worldName, msg, false);
-                        if (ChatAI.instance) ChatAI.instance.OnDeathQuip -= delayedMessage;
-                    }
-                    ChatAI.instance.OnDeathQuip += delayedMessage;
+                    };
                 }
                 else
                 {

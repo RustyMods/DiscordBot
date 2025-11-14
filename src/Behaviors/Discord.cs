@@ -36,6 +36,8 @@ public class Discord : MonoBehaviour
         OnAudioDownloaded += HandleSound;
         OnLog += HandleLog;
         
+        ZRoutedRpc.instance.Register<string, string, bool>(nameof(RPC_DisplayChat), RPC_DisplayChat);
+        
         DiscordBotPlugin.LogDebug("Initializing Discord Webhook");
     }
 
@@ -195,11 +197,12 @@ public class Discord : MonoBehaviour
         DisplayChatMessage(username, message, showDiscord);
     }
 
+    public void RPC_DisplayChat(long sender, string username, string message, bool showDiscord) =>
+        DisplayChatMessage(username, message, showDiscord);
+
     public void Internal_BroadcastMessage(string username, string message, bool showDiscord)
     {
-        foreach (var peer in ZNet.instance.GetPeers()) peer.m_rpc.Invoke(nameof(RPC_ClientBotMessage), username, message, showDiscord);
-        if (!Player.m_localPlayer) return;
-        DisplayChatMessage(username, message, showDiscord);
+        ZRoutedRpc.instance.InvokeRoutedRPC(ZRoutedRpc.Everybody, nameof(RPC_DisplayChat), username, message, showDiscord);
     }
 
     public static void RPC_ClientBotMessage(ZRpc rpc, string username, string message, bool showDiscord) => DisplayChatMessage(username, message, showDiscord);

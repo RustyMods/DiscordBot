@@ -22,7 +22,7 @@ public class Screenshot : MonoBehaviour
     public string message = string.Empty;
     private string thumbnail = string.Empty;
 
-    private GameObject m_chatWindow = null!;
+    private GameObject? m_chatWindow;
     
     public void Awake()
     {
@@ -98,18 +98,33 @@ public class Screenshot : MonoBehaviour
 
     public void HideHud()
     {
-        Hud.instance.m_userHidden = true;
-        Hud.instance.m_hudPressed = 0.0f;
-        m_chatWindow.SetActive(false);
-        Console.instance.gameObject.SetActive(false);
+        try
+        {
+            Hud.instance.m_userHidden = true;
+            Hud.instance.m_hudPressed = 0.0f;
+            m_chatWindow?.SetActive(false);
+            Console.instance?.gameObject.SetActive(false);
+        }
+        catch
+        {
+            DiscordBotPlugin.LogError("Failed to hide hud");
+        }
     }
 
     public void ShowHud()
     {
-        Hud.instance.m_userHidden = false;
-        Hud.instance.m_hudPressed = 0.0f;
-        m_chatWindow.SetActive(true);
-        Console.instance.gameObject.SetActive(true);
+        try
+        {
+            Hud.instance.m_userHidden = false;
+            Hud.instance.m_hudPressed = 0.0f;
+            m_chatWindow?.SetActive(true);
+            
+            Console.instance?.gameObject.SetActive(true);
+        }
+        catch
+        {
+            DiscordBotPlugin.LogError("Failed to show hud");
+        }
     }
 
     private IEnumerator DelayedSelfie()

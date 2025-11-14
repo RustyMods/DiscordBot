@@ -88,7 +88,7 @@ public static class DiscordCommands
                     string title = totalEmbeds == 1
                         ? "List of admin commands"
                         : $"List of admin commands (Part {index + 1} of {totalEmbeds})";
-
+                    
                     Discord.instance?.SendTableEmbed(
                         Webhook.Commands,
                         title,
